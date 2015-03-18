@@ -1,0 +1,59 @@
+;;; --------------------------------- Data model
+
+(defmodel department
+  (table "department")
+  (attributes
+    ((id f_department_id))))   ; primary key attribute always named 'id'
+
+(defmodel user
+  (table "auth_user")
+  (attributes (
+     (name username)
+     (id id))))
+
+(defmodel article
+  (table "article")
+  (operations (read update delete))
+  (attributes (
+     (id f_article_id)
+     (title f_article_name)
+     (owner f_article_user references user))))
+
+(defmodel author
+  (table "authora")
+  (attributes
+    ((article f_article_id references article)
+     (department f_department_id))))
+
+
+;;; -------------- roles
+(defrole registred-user)
+
+(defrole stuff department) ; parameterized role
+
+(defrole admin department)
+
+
+;;; ----------------------------------------- rules
+
+(rule admin-delete-article
+  (comment "Members of 'admin' role can delete articles if at least on of the coauthors is managed by the admin.")
+  (access allow)  ; allow/deny
+  (model article)
+  (grantees (role "admin" object.authors.department))
+  (operations (update))
+  ;;
+  ;;(constraint (= object.authors.department role.department))
+)
+
+
+(rule owner-delete-article
+  (comment "Owner can delete article.")
+  (access allow)  ; allow/deny
+  (model article)
+  (grantees (role "stuff" object.authors.department)
+            (role "registred-user")
+            (role "admin" object.authors.department))
+  (operations (delete edit))
+  ;;
+  (constraint (= object.owner 63)))

@@ -1,0 +1,29 @@
+How to start
+============
+
+Load the system by evaluating
+  (asdf:operate 'asdf:load-op :secsrv)
+
+Then run main function
+  (secsrv:main)
+
+
+How to run tests
+================
+
+(asdf:operate 'asdf:load-op :secsrv-test)
+
+(lift:run-tests :suite 'root :break-on-errors? nil)
+
+
+TODO
+====
+
+1. Split model definition from other access control statements; load
+policy from several files.
+
+2. Generalize access path parameters. Prepared SQL should be augmented
+with list of parameters, and path evaluation function should accespt a
+name/value mapping representing current request.
+
+3. Implement parameterized roles.

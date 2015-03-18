@@ -1,0 +1,30 @@
+(rule name
+  (comment "Описание правила")
+  (access :allow) ;; allow/deny
+  (role "admin") ; Кому выданы права. Может быть (role "xxx") или (user "xxx")
+  (operation "delete")
+  (object-type "article"))
+
+(rule name
+  (comment "Описание правила")
+  (access :allow) ;; allow/deny
+  (role "admin") ; Кому выданы права. Может быть (role "xxx") или (user "xxx")
+  (operation "delete")
+  (object-type "article")
+  ;; В условиях могут использоваться user, role и object (кто и с чем выполняет операцию)
+  ;; и их свойства, которые должны быть описаны в модели
+  ;(condition (= object.owner.department role.department)))
+  (condition (= object.author.department role.department)))
+
+
+(rule den
+  (comment "Описание правила")
+  (access :deny) ;; allow/deny
+  (role "admin") ; Кому выданы права. Может быть (role "xxx") или (user "xxx")
+  (operation "delete")
+  (object-type "article")
+  ;; В условиях могут использоваться user, role и object (кто и с чем выполняет операцию)
+  ;; и их свойства, которые должны быть описаны в модели
+  )
+
+
