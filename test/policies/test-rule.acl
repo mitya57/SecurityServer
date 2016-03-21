@@ -28,3 +28,33 @@
   )
 
 
+
+(rule admin-delete-article
+  ;;"Members of 'admin' role can delete articles if at least on of the coauthors is managed by the admin."
+  (concept article)
+  (access allow)  ; allow/deny
+  (grantees (role "admin" object.authoras.man.posts.department))
+  (operations update))
+
+
+(rule owner-delete-article
+  "Owner can delete article."
+  (access allow)  ; allow/deny
+  (concept article)
+  (grantees (role "stuff" object.authoras.man.posts.department)
+            (role "registered-user")
+            (role "admin" object.authoras.man.posts.department))
+  (operations delete edit)
+  (constraint object.owner[username="safonin" and id <=63 and articles.owner.id=63].id = 63))
+
+
+(rule cant-delete-article
+  (access deny)
+  (concept article)
+  (grantees (role "stuff" object.authoras.man[id>0].posts.department)
+            (user "root")
+            (role "registered-user")
+            (role "admin" object.authoras.man.posts.department))
+  (operations delete edit)
+  ;;
+  (constraint (= object.owner.id 63)))

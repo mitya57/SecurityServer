@@ -8,15 +8,19 @@
                          :connect-string ("test/databases/istina.sqlite"))))
     (log-message :info "Starting")
 
-    (load-policy acl-filename)
-
+    (setf *sql-trace* t)
+    (setf *current-policy* (secsrv.parser::parse-file acl-filename))
 
     (with-checker (the-checker database-info :policy *current-policy*)
-      (print (time (has-access the-checker "safonin" "article" 211444 "delete"))))
+      (print (time (has-access the-checker "safonin" "article" 211444 "delete")))
+      (print (time (has-access the-checker "safonin" "book" 211916 "delete"))))
+
+    #+or(with-checker (the-checker database-info :policy *current-policy*)
+      (print (time (has-access the-checker "safonin" "article" 217019 "delete"))))
 
 
     ;; some quick tests
-    (with-checker (the-checker database-info :policy *current-policy*)
+    #+or(with-checker (the-checker database-info :policy *current-policy*)
       (let ((access-granted? (has-access the-checker "safonin" "article" 211444 "delete"))
             (article-model (find-model "Article"))
             (user-model (find-model "User"))
@@ -38,6 +42,23 @@
           (print (access-path->prepared-sql access-path))
           (print (evaluate-access-path access-path user-model 63)))
         access-granted?))))
+
+
+(defvar *clack-handle* nil "Instance of running clack Web-server.")
+
+(defun stop-clack ()
+  (prog1
+      (when *clack-handle*
+        (clack:stop *clack-handle*))
+    (setf *clack-handle* nil)))
+
+(defun start-clack ()
+  (stop-clack)
+  (setf *clack-handle*
+        (clack:clackup
+         (lambda (env)
+           (print (getf env :request-uri))
+           '(200 (:content-type "text/plain") ("Hello, Clack!"))))))
 
 
 ;;(db-setup-connection)

@@ -50,7 +50,7 @@
 
 
 (deftestsuite generate-sql (root)
-  ((the-policy (secsrv::load-policy "test/test.acl"))
+  ((the-policy (secsrv::load-policy "test/policies/test.acl"))
    (database-info '(:type :sqlite3
                     :connect-string ("test/istina.sqlite")))
    (testing-database-info '(:type :sqlite3

@@ -6,13 +6,11 @@
 (in-package :secsrv-test-asd)
 
 (asdf:defsystem :secsrv-test
-  :description "Tests for ABAC Security server"
+  :description "Tests for CBAC Security server"
   :author "serg@msu.ru"
-  :depends-on ((:require "secsrv")
-               (:require "lift"))
+  :depends-on ("secsrv" "lift")
+  :pathname "test"
+  :serial t
   :components
-  ((:module "test"
-            :serial t
-            :components
-            ((:file "package")
-             (:file "test-access-path")))))
+  ((:file "package")
+   (:file "test-parser")))

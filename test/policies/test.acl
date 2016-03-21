@@ -3,31 +3,85 @@
 (defmodel department
   (table "department")
   (attributes
-    ((id f_department_id))))   ; primary key attribute always named 'id'
+    ((id f_department_id primary key))))
 
 (defmodel user
   (table "auth_user")
-  (attributes (
-     (name username)
-     (id id))))
+  (attributes
+    ((username username)
+     (activated activated)
+     (id id primary key))))
+
+(defmodel man
+  (table "man")
+  (attributes
+    ((id f_man_id primary key)
+     (lastname f_man_namel)
+     (firstname f_man_namef))))
+
+(defmodel post
+  (table "manspost")
+  (attributes
+    ((id f_manspost_id primary key)
+     (man f_man_id references man)
+     (department f_department_id references department))))
+
+(defmodel authorb
+  ;; (refines activity-author)
+  (table authorb)
+  (attributes
+    ((id f_authrb_id primary key)
+     (activity f_book_id))))
+
+(defmodel book
+  ;; (refines activity)
+  (table "book")
+  (attributes
+    ((owner f_book_user references user)
+     (id f_book_id primary key)
+     (type f_booktype_id))))
 
 (defmodel article
   (table "article")
-  (operations (read update delete))
-  (attributes (
-     (id f_article_id)
+  (attributes
+    ((id f_article_id primary key)
      (title f_article_name)
+     (journal f_journal_id)
+     (collection f_collection_id)
      (owner f_article_user references user))))
 
-(defmodel author
+(defmodel authora
   (table "authora")
   (attributes
     ((article f_article_id references article)
-     (department f_department_id))))
+     (man f_man_id references man))))
+
+;;; ---------------------------------------- concepts
+(defconcept Activity)
+
+(defconcept CoauthoredActivity
+  (inherits Activity))
+
+(defconcept CBook
+  (inherits CoauthoredActivity book)
+  (attributes
+    (authors authorbs)))
+
+(defconcept CArticle
+  (inherits CoauthoredActivity article)
+  (attributes
+    (authors authoras)))
+
+(defconcept CJournalArticle
+  (inherits CArticle)
+  (constraint the(journal) > 0)
+  (attributes
+    (owner_name owner[activated > 3].username))
+  (exclude collection))
 
 
 ;;; -------------- roles
-(defrole registred-user)
+(defrole registered-user)
 
 (defrole stuff department) ; parameterized role
 
@@ -36,24 +90,26 @@
 
 ;;; ----------------------------------------- rules
 
-(rule admin-delete-article
-  (comment "Members of 'admin' role can delete articles if at least on of the coauthors is managed by the admin.")
+(rule owner-modify-activity
+  "Owner can delete activity."
   (access allow)  ; allow/deny
-  (model article)
-  (grantees (role "admin" object.authors.department))
-  (operations (update))
-  ;;
-  ;;(constraint (= object.authors.department role.department))
-)
+  (concept Activity)
+  (grantees (role "registered-user"))
+  (operations delete edit)
+  (constraint object.owner.id = user.id))
 
-
-(rule owner-delete-article
-  (comment "Owner can delete article.")
+(rule coauthor-edit-activity
+  "Any coauthor can edit activity."
   (access allow)  ; allow/deny
-  (model article)
-  (grantees (role "stuff" object.authors.department)
-            (role "registred-user")
-            (role "admin" object.authors.department))
-  (operations (delete edit))
-  ;;
-  (constraint (= object.owner 63)))
+  (concept CoauthoredActivity)
+  (grantees (role "registered-user"))
+  (operations edit)
+  (constraint some(object.authors.man.id) = user.man_id))
+
+(rule coauthor-modify-journal-article
+  "Do not allow to modify papers with large number of coauthors."
+  (access deny)
+  (concept CJournalArticle)
+  (grantees (role "registered-user"))
+  (operations edit delete)
+  (constraint count(object.authors.man.id) >= 10 and object.owner.id != user.id))

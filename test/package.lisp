@@ -4,16 +4,16 @@
 (defpackage :secsrv-test
   (:use :cl :lift :secsrv)
   (:export
-   run-all-tests)
+   #:run-all-tests)
   (:documentation
-   "This package contains unit tests of the ABAC Security Server."))
+   "This package contains unit tests of the CBAC Security Server."))
 
 (in-package :secsrv-test)
 
 (deftestsuite root ()
   ()
   (:documentation
-   "Root unit test suite for the CCS system."))
+   "Root unit test suite for the CBAC Security Server."))
 
 
 (defun run-all-tests ()

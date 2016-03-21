@@ -16,8 +16,27 @@
 
   (cl-log:start-messenger 'cl-log:text-stream-messenger
                           :stream *standard-output*
+                          ;;:category '(or :info)))
                           :category '(or :debug :info :trace)))
 
+
+(defmethod cl-log:format-message ((self cl-log:formatted-message))
+  (flet ((format-timestamp (timestamp)
+           (let ((ut (cl-log:timestamp-universal-time timestamp))
+                 (fraction (cl-log:timestamp-fraction timestamp)))
+             (multiple-value-bind (sec min hr day mon yr dow dst-p tz)
+                 (decode-universal-time ut)
+               (declare (ignore dow dst-p tz))
+               (declare (ignore yr mon day))
+               (concatenate 'string
+                            ""
+                            ;(format nil "~4,'0d-~2,'0d-~2,'0d " yr mon day)
+                            (format nil "~2,'0d:~2,'0d:~2,'0d.~6,'0d" hr min sec fraction))))))
+  (format nil "~a ~a ~?~&"
+          (format-timestamp (cl-log:message-timestamp self))
+          (cl-log:message-category self)
+          (cl-log:message-description self)
+          (cl-log:message-arguments self))))
 
 (eval-when (:load-toplevel)
   (setup-logging)

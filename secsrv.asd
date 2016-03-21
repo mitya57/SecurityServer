@@ -33,64 +33,34 @@
 
 
 (asdf:defsystem :secsrv
-  :name "ABAC Security Server"
+  :name "CBAC Security Server"
+  :description "Concept-based access control (CBAC) Security Server."
   :version "0.1"
   :author "serg@msu.ru"
   :depends-on ("cl-log"
-               "clsql" "clsql-sqlite3" "clsql-uffi" "clsql-odbc"
-               ;; "clack"
-               "cl-ppcre" "alexandria")
-  :components
-  ((module src
-           :serial t
-           :components
-           ((:file "package")
-            (:file "specials")
+               "cl-containers"
+               "clsql" "clsql-sqlite3" "clsql-uffi" "clsql-odbc" ; database access
+               "hunchentoot" "clack" "quri" ; server
+               "alexandria" "esrap" "trivial-types")
+  :pathname "src"
+  :serial t
+  :components ((:file "package")
+               (:file "types")
+               (:file "specials")
+               (:file "conditions")
 
-            ;; useful tools
-            (:module utils
-                     :components
-                     ((:file "logging")))
+               ;; useful tools
+               (:module utils
+                        :components
+                        ((:file "logging")))
 
-            ;; basic data structures
-            (:module model
-                     :serial t
-                     :components
-                     ((:file "entity")
-                      (:file "model")
-                      (:file "acl")
-                      (:file "role")
-                      (:file "policy")))
+               (:file "policy") ; data structures and helper functions for policy manipulations
 
-            ;; database access level
-            (:module dbaccess
-                     :serial t
-                     :components
-                     ((:file "db-access")))
+               (:file "db-access") ; database access level
+               (:file "parser")  ; access control language parser
+               (:file "checker") ; policy checker
 
-            ;; rule parser
-            (:module parser
-                     :depends-on (model)
-                     :serial t
-                     :components
-                     ((:file "acl-parser")
-                      (:file "validators")
-                      (:file "load")
-                      (:file "access-path")))
+               (:file "server") ; server
 
-            ;; policy checker
-            (:module checker
-                     :serial t
-                     :components
-                     ((:file "checker")
-                      (:file "has-access")
-                      (:file "permitted-operations")))
-
-            ;; server
-            (:module server
-                     :serial t
-                     :components
-                     ((:file "server")))
-
-            ;; top-level function that starts everything
-            (:file "main")))))
+               ;; top-level function that starts everything
+               (:file "main")))
