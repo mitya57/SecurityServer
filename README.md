@@ -1,5 +1,5 @@
 ### Status
-[![Build Status](https://travis-ci.org/sergadin/SecurityServer.svg?branch=master](https://travis-ci.org/sergadin/SecurityServer)
+[![Build Status](https://travis-ci.org/sergadin/SecurityServer.svg?branch=master)](https://travis-ci.org/sergadin/SecurityServer)
 [![Coverage Status](https://coveralls.io/repos/github/sergadin/SecurityServer/badge.svg?branch=master)](https://coveralls.io/github/sergadin/SecurityServer?branch=master)
               
 ### CBAC SecurityServer
