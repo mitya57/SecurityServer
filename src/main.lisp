@@ -4,14 +4,16 @@
   (let (;;(model-filename "test/policies/istina.model.acl")
         (acl-filename "test/policies/test.acl")
         ;; for oracle use :odbc and connect string like ("host" "username" "password")
-        (database-info '(:type :sqlite3
+        (*database-info* '(:type :sqlite3
                          :connect-string ("test/databases/istina.sqlite"))))
     (log-message :info "Starting")
 
     (setf *sql-trace* t)
     (setf *current-policy* (secsrv.parser::parse-file acl-filename))
 
-    (with-checker (the-checker database-info :policy *current-policy*)
+    (start-server *database-info* :port 8135)
+
+    (with-checker (the-checker *database-info* :policy *current-policy*)
       (print (time (has-access the-checker "safonin" "article" 211444 "delete")))
       (print (time (has-access the-checker "safonin" "book" 211916 "delete"))))
 
@@ -42,25 +44,3 @@
           (print (access-path->prepared-sql access-path))
           (print (evaluate-access-path access-path user-model 63)))
         access-granted?))))
-
-
-(defvar *clack-handle* nil "Instance of running clack Web-server.")
-
-(defun stop-clack ()
-  (prog1
-      (when *clack-handle*
-        (clack:stop *clack-handle*))
-    (setf *clack-handle* nil)))
-
-(defun start-clack ()
-  (stop-clack)
-  (setf *clack-handle*
-        (clack:clackup
-         (lambda (env)
-           (print (getf env :request-uri))
-           '(200 (:content-type "text/plain") ("Hello, Clack!"))))))
-
-
-;;(db-setup-connection)
-;;(print (test-db))
-;;(db-close-connection)

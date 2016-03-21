@@ -82,6 +82,14 @@ disconnect the checker from the database."
             (progn ,@body)
          (clsql:disconnect :database connection)))))
 
+(defun resolve-relational-operation (operation)
+  (alexandria:eswitch (operation :test #'string=)
+    ("=" #'=)
+    ("<" #'<)
+    (">" #'>)
+    ("<=" #'<=)
+    (">=" #'>=)
+    ("!=" #'/=)))
 
 
 (defun simple-access-path-p (access-path)
@@ -295,7 +303,7 @@ always a list, regardless of the result's actual cardinality.")
 (defun compare-values (operation quantifiers values)
   "Compare VALUES using relational OPERATION taking QUANTIFIERS into account."
   (assert (= (length quantifiers) (length values)))
-  (let ((op (cdr (assoc operation +relational-oparations-mapping+ :test #'string-equal))))
+  (let ((op (resolve-relational-operation operation)))
     (labels ((cmp (quantifiers values &optional (val nil val-supplied))
                (if (null values)
                    t
@@ -422,7 +430,10 @@ CONCEPT, OBJECT-ID, and OPERATION. Returns T or NIL."
   "Check that USER has permission to evaluate OPERATION on object of
 `model' MODEL with id OBJECT-ID.
 
-Return: T or NIL."
+Return multiple values:
+   access status T or NIL,
+   elapsed time (in seconds),
+   number of SQL queries processed."
   (log-message :trace "****** Checking access for ~A of ~A, id = ~S ******"
                operation entity-name object-id)
   (let* ((start-time (get-internal-real-time))
@@ -446,4 +457,6 @@ Return: T or NIL."
                    access-check-result
                    (/ (- (get-internal-real-time) start-time) internal-time-units-per-second)
                    *sql-query-count*)
-      access-check-result)))
+      (values access-check-result
+              (/ (- (get-internal-real-time) start-time) internal-time-units-per-second)
+              *sql-query-count*))))
