@@ -39,7 +39,7 @@
   :author "serg@msu.ru"
   :depends-on ("cl-log"
                "cl-containers"
-               "clsql" "clsql-sqlite3" "clsql-uffi" "clsql-odbc" ; database access
+               "clsql" "clsql-sqlite3" "clsql-uffi";; "clsql-odbc" ; database access
                "hunchentoot" "clack" "quri" ; server
                "alexandria" "esrap" "trivial-types")
   :pathname "src"
