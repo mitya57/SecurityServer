@@ -32,14 +32,12 @@ script:
              -s cl-coveralls
              -e '(coveralls:with-coveralls (:exclude "test")
                        (push (pathname "~/sergadin/SecurityServer/") asdf:*central-registry*)
-                       (ql:quickload "secsrv")
                        (ql:quickload "secsrv-test")
                        (lift:describe-test-result (lift:run-tests :suite :root) t))';
     else
          ros -s lift
              -e '(progn
               (push (pathname "~/sergadin/SecurityServer/") asdf:*central-registry*)
-              (ql:quickload "secsrv")
               (ql:quickload "secsrv-test")
               (lift:describe-test-result (lift:run-tests :suite :root) t))';
     fi
