@@ -6,6 +6,7 @@
         ;; for oracle use :odbc and connect string like ("host" "username" "password")
         (*database-info* '(:type :sqlite3
                          :connect-string ("test/databases/istina.sqlite"))))
+    (setup-logging)
     (log-message :info "Starting")
 
     (setf *sql-trace* t)

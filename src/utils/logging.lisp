@@ -37,7 +37,3 @@
           (cl-log:message-category self)
           (cl-log:message-description self)
           (cl-log:message-arguments self))))
-
-(eval-when (:load-toplevel)
-  (setup-logging)
-  (cl-log:log-message :info "Logging started"))
