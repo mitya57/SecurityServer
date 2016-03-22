@@ -40,7 +40,7 @@
   :depends-on ("cl-log"
                "cl-containers"
                "cl-utilities"
-               "clsql" "clsql-sqlite3" "clsql-uffi";; "clsql-odbc" ; database access
+               "cl-dbi" "dbd-sqlite3" ; database access
                "hunchentoot" "clack" "quri" ; server
                "alexandria" "esrap" "trivial-types")
   :pathname "src"

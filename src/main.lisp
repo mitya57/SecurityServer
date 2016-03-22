@@ -5,7 +5,7 @@
         (acl-filename "test/policies/test.acl")
         ;; for oracle use :odbc and connect string like ("host" "username" "password")
         (*database-info* '(:type :sqlite3
-                         :connect-string ("test/databases/istina.sqlite"))))
+                         :connect-string "test/databases/istina.sqlite")))
     (setup-logging)
     (log-message :info "Starting")
 

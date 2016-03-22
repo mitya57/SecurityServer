@@ -74,13 +74,14 @@ disconnect the checker from the database."
           (make-instance '<checker> :database-info ,database-info :policy ,policy)))
      (with-accessors ((db-info checker-database-info)
                       (connection checker-connection)) ,checker-var
-       (setf connection
-             (clsql:connect (getf db-info :connect-string)
+       (setf *dbcon*
+             (dbi:connect :sqlite3 :database-name (getf db-info :connect-string))
+             #+(or)(clsql:connect (getf db-info :connect-string)
                             :database-type (getf db-info :type)
                             :if-exists :warn-old))
        (unwind-protect
             (progn ,@body)
-         (clsql:disconnect :database connection)))))
+         (dbi:disconnect *dbcon*)))))
 
 (defun resolve-relational-operation (operation)
   (alexandria:eswitch (operation :test #'string=)
