@@ -13,4 +13,6 @@
   :serial t
   :components
   ((:file "package")
-   (:file "test-parser")))
+   (:file "test-parser")
+   (:file "populate-db")
+   (:file "test-policy")))

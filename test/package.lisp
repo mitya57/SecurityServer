@@ -1,10 +1,8 @@
-;;(in-package :cl-user)
-
+(in-package :cl-user)
 
 (defpackage :secsrv-test
   (:use :cl :lift :secsrv)
-  (:export
-   #:run-all-tests)
+  (:export #:run-all-tests)
   (:documentation
    "This package contains unit tests of the CBAC Security Server."))
 

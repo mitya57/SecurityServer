@@ -66,22 +66,25 @@
   (make-instance 'checker :database-info database-info :policy policy))
 
 
-(defmacro with-checker ((checker-var database-info &key (policy '*current-policy*))
+(defmacro with-checker ((checker-var database-info
+                                     &key (policy '*current-policy*)
+                                     reuse-database-connection)
                         &body body)
   "Evaluate BODY with the checker assigned to CHECKER-VAR. Connect and
-disconnect the checker from the database."
+disconnect the checker from the database, if database connection is
+not provided by th REUSE-DATABASE-CONNECTION keyword."
   `(let ((,checker-var
           (make-instance '<checker> :database-info ,database-info :policy ,policy)))
      (with-accessors ((db-info checker-database-info)
-                      (connection checker-connection)) ,checker-var
+                      (connection checker-connection))
+         ,checker-var
        (setf *dbcon*
-             (dbi:connect :sqlite3 :database-name (getf db-info :connect-string))
-             #+(or)(clsql:connect (getf db-info :connect-string)
-                            :database-type (getf db-info :type)
-                            :if-exists :warn-old))
+             (or ,reuse-database-connection
+                 (dbi:connect :sqlite3 :database-name (getf db-info :connect-string))))
        (unwind-protect
             (progn ,@body)
-         (dbi:disconnect *dbcon*)))))
+         (unless ,reuse-database-connection
+           (dbi:disconnect *dbcon*))))))
 
 (defun resolve-relational-operation (operation)
   (alexandria:eswitch (operation :test #'string=)

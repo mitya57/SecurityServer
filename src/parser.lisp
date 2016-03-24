@@ -22,7 +22,8 @@
                 #:register-fk-relation)
   (:export
    #:parse-file
-   #:parse-string))
+   #:parse-string
+   #:load-policy-from-string))
 
 (in-package :secsrv.parser)
 
@@ -703,11 +704,14 @@ added without foreign key references."
   t)
 
 
-(defun parse-file (filename)
-  "Parse the entire content of the CBAC policy file specified by the
-FILENAME and returns `<policy>' object. Signal a condition in case of
-error."
-  (let ((statements (parse 'policy (read-file filename)))
+
+(defun parse-string (string)
+  "Parse CBAC policy expression from STRING."
+  (let ((statements (parse 'policy string)))
+    statements))
+
+(defun load-policy-from-string (string)
+  (let ((statements (parse 'policy string))
         (policy (make-policy)))
     ;; First pass on concepts: add concepts hierarchy and entities'
     ;; direct attributes. Do not process fk relations because foreign
@@ -738,9 +742,8 @@ error."
                               #'(lambda (rule) (process-access-rule rule policy)))
     policy))
 
-
-
-(defun parse-string (string)
-  "Parse CBAC policy expression from STRING."
-  (let ((statements (parse 'policy string)))
-    statements))
+(defun parse-file (filename)
+  "Parse the entire content of the CBAC policy file specified by the
+FILENAME and returns `<policy>' object. Signal a condition in case of
+error."
+  (load-policy-from-string (read-file filename)))
