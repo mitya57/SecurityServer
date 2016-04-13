@@ -23,13 +23,9 @@
     :initarg :policy
     :initform (error "Must specify a valid policy for a checker.")
     :accessor checker-policy)
-   (database-info
-    :initarg :database-info
-    :initform (error "Must provide a database connect string.")
-    :accessor checker-database-info
-    :documentation "Relevant information required to establish database connection.")
    (database-connection
     :initform nil
+    :initarg :connection
     :accessor checker-connection
     :documentation "Current database connection. NIL if not connected."))
   (:documentation "All information required for access control checks,
@@ -60,27 +56,25 @@
     (object-entity (request-object request))))
 
 
-(defun make-checker (&key database-info (policy *current-policy*))
-  "Create an ACL checker associated with database connection specified
-  by DATABASE-INFO and `<policy>' POLICY."
-  (make-instance 'checker :database-info database-info :policy policy))
+(defun make-checker (&key (policy *current-policy*) connection)
+  "Create an ACL checker associated with a database CONNECTION and `<policy>' POLICY."
+  (make-instance '<checker> :policy policy :connection connection))
 
 
-(defmacro with-checker ((checker-var database-info
+(defmacro with-checker ((checker-var connection-maker
                                      &key (policy '*current-policy*)
                                      reuse-database-connection)
                         &body body)
   "Evaluate BODY with the checker assigned to CHECKER-VAR. Connect and
-disconnect the checker from the database, if database connection is
-not provided by th REUSE-DATABASE-CONNECTION keyword."
-  `(let ((,checker-var
-          (make-instance '<checker> :database-info ,database-info :policy ,policy)))
-     (with-accessors ((db-info checker-database-info)
-                      (connection checker-connection))
+disconnect the checker to the database using connection created by
+CONNECTION-MAKER, if database connection is not provided by th
+REUSE-DATABASE-CONNECTION keyword."
+  `(let ((,checker-var (make-checker :policy ,policy)))
+     (with-accessors ((connection checker-connection))
          ,checker-var
        (setf *dbcon*
              (or ,reuse-database-connection
-                 (dbi:connect :sqlite3 :database-name (getf db-info :connect-string))))
+                 (funcall ,connection-maker)))
        (unwind-protect
             (progn ,@body)
          (unless ,reuse-database-connection

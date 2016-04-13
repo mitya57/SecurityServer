@@ -29,7 +29,7 @@
             (debug 0)))
 
 #+:production
-(declaim (inline find-attribute))
+(declaim (inline #:find-attribute))
 
 
 (asdf:defsystem :secsrv
@@ -40,7 +40,7 @@
   :depends-on ("cl-log"
                "cl-containers"
                "cl-utilities"
-               "cl-dbi" "dbd-sqlite3" ; database access
+               "cl-dbi" "dbd-sqlite3" "dbd-oracle" ; database access
                "hunchentoot" "clack" "quri" ; server
                "alexandria" "esrap" "trivial-types")
   :pathname "src"
