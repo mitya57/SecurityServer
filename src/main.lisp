@@ -1,28 +1,33 @@
 (in-package :secsrv)
 
-(defun main ()
-  (let (;;(model-filename "test/policies/istina.model.acl")
-        (acl-filename "test/policies/test.acl")
-        ;; for oracle use :odbc and connect string like ("host" "username" "password")
-        (dbd.oracle:*foreign-library-search-paths* '(#p"/opt/oracle/"))
-        (db-info (if nil
-                     '(:type :sqlite3
-                       :connect-string "test/databases/istina.sqlite")
-                     '(:type :oracle
-                       :connect-string "localhost:1521/orcl"
-                       :username "science"
-                       :password "tttpwd"))))
-    (flet ((connection-maker ()
-             (ecase (getf db-info :type :oracle)
-               (:oracle (dbi:connect :oracle
-                                     :database-name (getf db-info :connect-string)
-                                     :username (getf db-info :username)
-                                     :password (getf db-info :password)))
-               (:sqlite3 (dbi:connect :sqlite3
-                                      :database-name (getf db-info :connect-string))))))
-      (setup-logging)
-      (log-message :info "Starting")
+(defun load-config (name &key (directory cl-user::*secsrv-home*))
+  (let ((filename (merge-pathnames name directory))
+        (config (py-configparser:make-config)))
+    (log-message :info "Loading config file ~A" filename)
+    (py-configparser:read-files config (list filename))))
 
+(defun get-option (config section-name option-name &optional default)
+  (py-configparser:get-option config section-name option-name :defaults default))
+
+
+(defun main ()
+  (setup-logging)
+  (log-message :info "Starting")
+  (let* ((config (load-config #p"local.cfg"))
+         (acl-filename (get-option config "Policy" "rules"))
+         (dbd.oracle:*foreign-library-search-paths*
+          (let ((path (get-option config "Database" "library-path")))
+            (when path
+             (pathname path)))))
+    (log-message :info "Using database ~A" (get-option config "Database" "type"))
+    (flet ((connection-maker ()
+             (alexandria:eswitch ((get-option config "Database" "type") :test #'string=)
+               ("oracle" (dbi:connect (intern "oracle" :keyword)
+                                     :database-name (get-option config "Database" "name")
+                                     :username (get-option config "Database" "username")
+                                     :password (get-option config "Database" "password")))
+               ("sqlite3" (dbi:connect :sqlite3
+                                       :database-name (get-option config "Database" "name"))))))
       (setf *sql-trace* t)
       (setf *current-policy* (secsrv.parser::parse-file acl-filename))
 

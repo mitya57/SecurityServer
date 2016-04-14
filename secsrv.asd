@@ -1,5 +1,11 @@
 ;;;; -*- Mode: Lisp; Syntax: ANSI-Common-Lisp; Package: CL-USER; Encoding: utf-8; -*-
 
+(in-package :cl-user)
+
+(defparameter *secsrv-home*
+  (pathname (directory-namestring *load-truename*))
+  "Home directory of the CBAC SecurityServer.")
+
 (defpackage #:secsrv-asd
   (:use :common-lisp :asdf))
 
@@ -42,6 +48,7 @@
                "cl-utilities"
                "cl-dbi" "dbd-sqlite3" "dbd-oracle" ; database access
                "hunchentoot" "clack" "quri" ; server
+               "py-configparser"
                "alexandria" "esrap" "trivial-types")
   :pathname "src"
   :serial t
