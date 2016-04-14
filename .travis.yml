@@ -20,6 +20,9 @@ install:
   # Coveralls support
   - git clone https://github.com/fukamachi/cl-coveralls ~/lisp/cl-coveralls
 
+  # Coveralls support
+  - git clone https://github.com/sergadin/dbd-oracle ~/lisp/dbd-oracle
+
   - ros -e '(ql:quickload "lift")'
 
 cache:
