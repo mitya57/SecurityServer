@@ -1,6 +1,9 @@
 (in-package :secsrv)
 
-(defun load-config (name &key (directory cl-user::*secsrv-home*))
+(defun get-home-directory ()
+  cl-user::*secsrv-home*)
+
+(defun load-config (name &key (directory (get-home-directory)))
   (let ((filename (merge-pathnames name directory))
         (config (py-configparser:make-config)))
     (log-message :info "Loading config file ~A" filename)
@@ -16,7 +19,7 @@
   (let* ((config (load-config #p"local.cfg"))
          (acl-filename (get-option config "Policy" "rules"))
          (dbd.oracle:*foreign-library-search-paths*
-          (let ((path (get-option config "Database" "library-path")))
+          (let ((path (get-option config "Database" "library-path" "")))
             (when path
              (pathname path)))))
     (log-message :info "Using database ~A" (get-option config "Database" "type"))
@@ -26,8 +29,15 @@
                                      :database-name (get-option config "Database" "name")
                                      :username (get-option config "Database" "username")
                                      :password (get-option config "Database" "password")))
-               ("sqlite3" (dbi:connect :sqlite3
-                                       :database-name (get-option config "Database" "name"))))))
+               ("sqlite3"
+                (let* ((dbf (get-option config "Database" "name"))
+                       (relativep (char/= #\/ (aref dbf 0)))
+                       (home (get-home-directory)))
+                  (dbi:connect :sqlite3
+                               :database-name
+                               (format nil "~A" (merge-pathnames
+                                                 (pathname dbf)
+                                                 (when relativep home)))))))))
       (setf *sql-trace* t)
       (setf *current-policy* (secsrv.parser::parse-file acl-filename))
 

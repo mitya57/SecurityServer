@@ -9,10 +9,55 @@
 ;;; Classes
 ;;;
 
-;;--- TODO: add <hierarchical-object> class as a base for <policy>, <concept>, <role>
-;; with respective tree-walking functions.
 
-(defclass <policy> ()
+(defclass <hierarchical-object> ()
+  ((children
+    :type (list-of-type <hierarchical-object>)
+    :initform nil
+    :reader ho-children
+    :documentation "Auto-maintained list of all direct children.")
+   (parents
+    :type (list-of-type <hierarchical-object>)
+    :initarg :parents
+    :initform nil
+    :accessor ho-parents)))
+
+(defgeneric ho-add-parent (object parent)
+  (:documentation "Adds another parent to the hierarchical object OBJECT.")
+  (:method ((object <hierarchical-object>) parent)
+    ;; Check that OBJECT and PARENT belong to one hierarchy
+    (assert (or (subtypep (class-of object) (class-of parent))
+                (subtypep (class-of parent) (class-of object))))
+    (pushnew object (slot-value parent 'children))
+    (pushnew parent (slot-value object 'parents))))
+
+(defmethod (setf ho-parents) :around (new-value (object <hierarchical-object>))
+  (loop :for parent :in (slot-value object 'parents)
+     :do (delete object (slot-value parent 'children)))
+  (loop :for parent :in new-value
+     :do (ho-add-parent object parent))
+  (call-next-method))
+
+(defmethod initialize-instance :after ((object <hierarchical-object>) &key)
+  (loop :for parent :in (slot-value object 'parents)
+     :do (ho-add-parent object parent)))
+
+
+(defgeneric ho-walk (hierarchical-object &optional function &key direction)
+  (:documentation "Walks the hierarchy starting at OBJECT in the
+  specified DIRECTION. If FUNCTION is not nil then it is a function
+  with one argument to be called on every node. The method returns the
+  list of nodes visited. DIRECTION could be either :SUB-CONCEPTS
+  or :SUPER-CONCEPTS.")
+  (:method ((object <hierarchical-object>) &optional function &key (direction :sub-concepts))
+    (loop :for direct-subconcept :in (ecase direction
+                                       (:sub-concepts (ho-children object))
+                                       (:super-concepts (ho-parents object)))
+       :when function :do (funcall function direct-subconcept)
+       :nconc (cons direct-subconcept (ho-walk direct-subconcept function :direction direction)))))
+
+
+(defclass <policy> (<hierarchical-object>)
   ((rules :initform nil
           :accessor policy-rules
           :documentation "List of all policy rules.")
@@ -25,7 +70,7 @@
     :documentation "List of all database models."))
   (:documentation "Policy is a collection of concepts, roles, and access control rules."))
 
-(defclass <concept> ()
+(defclass <concept> (<hierarchical-object>)
   ((name :type string
          :initarg :name
          :reader concept-name)
@@ -33,15 +78,6 @@
               :initform nil
               :initarg :docstring
               :reader concept-docstring)
-   (super :type (list-of-type <concept>)
-          :initarg :super
-          :initform nil
-          :reader concept-super)
-   (sub-concepts
-    :type (list-of-type <concept>)
-    :initform nil
-    :reader concept-sub-concepts
-    :documentation "Auto-maintained list of all direct subconcepts.")
    (attributes
     :initform (containers:make-container 'containers:simple-associative-container :test #'equal)
     :accessor concept-attributes
@@ -309,8 +345,8 @@
   (unless (find-item (concept-excluded-attributes concept) attribute-name)
     ;; Attribute name was not explicitely excluded in the CONCEPT. Search for it.
     (let ((direct-attribute (item-at (concept-attributes concept) attribute-name)))
-      (if (and (null direct-attribute) (concept-super concept))
-          (loop :for super :in (concept-super concept)
+      (if (and (null direct-attribute) (ho-parents concept))
+          (loop :for super :in (ho-parents concept)
              :for att = (find-attribute super attribute-name)
              :when att :do (return att))
           direct-attribute))))
@@ -319,15 +355,6 @@
   "Find a `<concept>' by it's NAME in a `<policy>' specified by POLICY
 keyword. NAME is case-insensitive."
   (item-at (slot-value policy 'concepts) name))
-
-
-(defgeneric all-sub-concepts (concept &optional direction)
-  (:documentation "Construct the list of all sub-concepts at all levels of inheritance.")
-  (:method ((concept <concept>) &optional (direction :sub-concepts))
-    (loop :for direct-subconcept :in (ecase direction
-                                       (:sub-concepts (concept-sub-concepts concept))
-                                       (:super-concepts (concept-super concept)))
-       :nconc (cons direct-subconcept (all-sub-concepts direct-subconcept direction)))))
 
 
 (defun make-policy ()
@@ -359,14 +386,10 @@ keyword. NAME is case-insensitive."
         (log-message :error "~A; Dynamic access path assumed." c)))
     access-path))
 
-(defmethod initialize-instance :after ((concept <concept>) &key)
-  (loop :for super :in (slot-value concept 'super)
-     :do (push concept (slot-value super 'sub-concepts))))
-
 (defun make-concept (name &key super constraint)
   (make-instance '<concept>
                  :name name
-                 :super super
+                 :parents super
                  :constraint constraint))
 
 
@@ -374,7 +397,7 @@ keyword. NAME is case-insensitive."
   (make-instance '<entity>
                  :name name
                  :table-name table-name
-                 :super super))
+                 :parents super))
 
 (defun add-concept (policy name concept)
   ;;(log-message :trace "Adding concept ~A to the policy~%" name)

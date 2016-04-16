@@ -379,7 +379,7 @@ all concepts that the object belongs to. Returns a list of `<concept>'s."
              (tree-search (concept)
                (when (match concept)
                  (cons concept
-                       (loop :for sub-concept :in (concept-sub-concepts concept)
+                       (loop :for sub-concept :in (ho-children concept)
                           :nconcing (tree-search sub-concept))))))
       (tree-search entity))))
 
@@ -401,7 +401,7 @@ CONCEPT, OBJECT-ID, and OPERATION. Returns T or NIL."
            (and
             ;; This rule is defined for the right concept and operation
             (or (member rule-concept object-concepts)
-                (some (let ((sc (all-sub-concepts rule-concept)))
+                (some (let ((sc (ho-walk rule-concept)))
                         #'(lambda (c) (member c sc)))
                       object-concepts))
             (member operation rule-operations :test #'string-equal)
