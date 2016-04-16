@@ -71,4 +71,12 @@
                (:file "server") ; server
 
                ;; top-level function that starts everything
-               (:file "main")))
+               (:file "main"))
+  :in-order-to ((test-op (load-op secsrv-test)))
+  :perform (test-op :after (op c)
+                    (funcall (intern (symbol-name '#:run-tests) :lift)
+			      :config :generic)))
+
+(defmethod operation-done-p
+           ((o test-op) (c (eql (find-system 'secsrv))))
+  (values nil))
