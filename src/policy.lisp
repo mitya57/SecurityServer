@@ -56,6 +56,11 @@
        :when function :do (funcall function direct-subconcept)
        :nconc (cons direct-subconcept (ho-walk direct-subconcept function :direction direction)))))
 
+(defgeneric ho-ascendant-p (object parent &key test)
+  (:documentation "Check that parent and object are connected by a chain.")
+  (:method ((object <hierarchical-object>) (parent <hierarchical-object>) &key (test #'eq))
+    (member parent (ho-walk object nil :direction :super-concept) :test test)))
+
 
 (defclass <policy> (<hierarchical-object>)
   ((rules :initform nil

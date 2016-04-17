@@ -2,12 +2,6 @@
 
 (in-package :secsrv)
 
-(alexandria:define-constant +relational-oparations-mapping+
-    `(("=" . ,#'=) ("<" . ,#'<) (">" . ,#'>) ("<=" . ,#'<=) (">=" . ,#'>=) ("!=" . ,#'/=))
-  :test #'equal
-  :documentation "A mapping from operation name and LISP functions.")
-
-
 (defgeneric has-access (checker user model object operation)
   (:documentation "Verify that access may be granted for request under
   the `policy' and database associated to CHECKER."))
@@ -135,7 +129,7 @@ REUSE-DATABASE-CONNECTION keyword."
 
 
 (defun simple-constraint-p (constraint)
-  "A constraint is simple, if it reffers to direct attributes
+  "A constraint is simple, if it refers to direct attributes
 only. Effectively, simple constraints are just logical expressions
 over entity attributes."
   (cond
@@ -172,7 +166,7 @@ over entity attributes."
     (t (error "Unsupported operand"))))
 
 (defun ap-constraint->sql (constraint table-alias initial-record)
-  "For a given the access path CONSTRAINT build an expression to be
+  "For the given access path CONSTRAINT build the expression to be
 appended to WHERE clause of an SQL query. TABLE-ALIAS defines the
 name used in the higher level SQL query for addressing a table, where
 CONSTRAINT's attributes appear. INITIAL-RECORD is the name of an SQL
@@ -263,6 +257,7 @@ object's identifier.
 
 
 (defun evaluate-access-path (access-path object &optional object-concept)
+  "Evaluates SQL query defined by the ACCESS-PATH starting from the OBJECT."
   (let* ((ap-expression (access-path-expression access-path))
          (qualifier (access-path-qualifier ap-expression)))
     (cond
@@ -328,7 +323,7 @@ always a list, regardless of the result's actual cardinality.")
   "Check that `<CONSTRAINT>' is satisfied by the OBJECT, assuming it is
 an instance of OBJECT-CONCEPT."
   (with-accessors ((entity object-entity)
-                   (object-id id))
+                   (id object-id))
       object
     (log-message :trace "Checking constraint ~A for object=(~A ~A) as an instance of ~A."
                  (constraint-expression constraint)
@@ -368,7 +363,7 @@ an instance of OBJECT-CONCEPT."
 
 
 (defun find-matching-concepts (object)
-  "Walk the concept's hierarrchy tree starting from ENTITY and find
+  "Walk the concept's hierarrchy tree starting at OBJECT's `<entity>' and find
 all concepts that the object belongs to. Returns a list of `<concept>'s."
   (with-accessors ((entity object-entity)
                    (object-id id))
@@ -385,8 +380,8 @@ all concepts that the object belongs to. Returns a list of `<concept>'s."
 
 
 (defun match-rule (user object-concepts operation rule)
-  "Check that the `RULE' matches the access request specified by USER,
-CONCEPT, OBJECT-ID, and OPERATION. Returns T or NIL."
+  "Check that the `RULE' matches the access request specified by the USER,
+CONCEPT, and OPERATION. Returns T or NIL."
   (with-accessors ((granted-users rule-users)
                    (granted-roles rule-roles)
                    (rule-concept rule-concept)
