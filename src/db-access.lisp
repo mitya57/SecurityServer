@@ -3,7 +3,6 @@
 ;;;;
 (in-package :secsrv)
 
-
 (defun run-query (sql-statement)
   (dbi:with-transaction *dbcon*
     (incf *sql-query-count*)
@@ -44,7 +43,7 @@
 
 (defun user-has-role (user role &key (parameters '()))
   (declare (ignore parameters))
-  (check-type role <role>)
+  (check-type role policy:<role>)
   (log-message :trace "Checking ROLE ~A for user ~A"
                (role-name role)
                user)
@@ -55,8 +54,8 @@
   "Evaluate prepared SQL query of the `ACCESS-PATH' with top-level
 object bound to an object of `MODEL' identified by OBJECT-ID."
   (declare (ignore objects))
-  (check-type object <object>)
-  (let* ((populated-query (format nil query (object-id object)))
+  (check-type object checker:<object>)
+  (let* ((populated-query (format nil query (checker:object-id object)))
          (result (run-query populated-query)))
     ;; access path adresses single attribute, so take first value from
     ;; each row

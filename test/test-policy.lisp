@@ -20,14 +20,14 @@
 
 (addtest (policy)
   simple-request
-  (secsrv::with-checker (the-checker #'(lambda () nil) :policy policy :reuse-database-connection conn)
-    (ensure-same (has-access the-checker "user" "ent-b" 2 "delete") t)
-    (ensure-same (has-access the-checker "root" "ent-b" 2 "delete") nil)))
+  (checker::with-checker (the-checker #'(lambda () nil) :policy policy :reuse-database-connection conn)
+    (ensure-same (checker:has-access the-checker "user" "ent-b" 2 "delete") t)
+    (ensure-same (checker:has-access the-checker "root" "ent-b" 2 "delete") nil)))
 
 (addtest (policy)
   simple-constrained-request
-  (secsrv::with-checker (the-checker #'(lambda () nil) :policy policy :reuse-database-connection conn)
-    (ensure-same (has-access the-checker "user" "ent-a" 1 "delete") nil)
-    (ensure-same (has-access the-checker "root" "ent-a" 1 "edit") nil)
-    ;;(ensure-same (has-access the-checker "root" "ent-a" 2 "edit") nil)
-    (ensure-same (has-access the-checker "root" "ent-a" 3 "edit") t)))
+  (checker:with-checker (the-checker #'(lambda () nil) :policy policy :reuse-database-connection conn)
+    (ensure-same (checker:has-access the-checker "user" "ent-a" 1 "delete") nil)
+    (ensure-same (checker:has-access the-checker "root" "ent-a" 1 "edit") nil)
+    ;;(ensure-same checker:(has-access the-checker "root" "ent-a" 2 "edit") nil)
+    (ensure-same (checker:has-access the-checker "root" "ent-a" 3 "edit") t)))

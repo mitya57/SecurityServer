@@ -1,7 +1,7 @@
 ;;;; -*- Mode: Lisp; Syntax: ANSI-Common-Lisp; Base: 10 -*-
 
 
-(in-package :secsrv)
+(in-package :secsrv.sys)
 
 
 (define-condition parsing-error (simple-error)

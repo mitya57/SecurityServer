@@ -74,9 +74,9 @@
   (destructuring-bind (kw-check user-name operation entity-name object-id . tail)
       (cdr (cl-utilities:split-sequence #\/ (getf env :path-info)))
     (declare (ignore kw-check tail))
-    (with-checker (the-checker connection-maker :policy *current-policy*)
+    (checker:with-checker (the-checker connection-maker :policy *current-policy*)
       (multiple-value-bind (granted-p elapsed-time sql-queries-count)
-          (has-access the-checker user-name entity-name (parse-integer object-id) operation)
+          (checker:has-access the-checker user-name entity-name (parse-integer object-id) operation)
         (list hunchentoot:+http-ok+
               '(:content-type "text/plain")
               (list

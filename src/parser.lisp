@@ -5,29 +5,15 @@
 (in-package :cl-user)
 
 (defpackage secsrv.parser
-  (:use :cl :alexandria :esrap)
+  (:use :cl :alexandria :esrap :secsrv.policy :secsrv.sys)
   (:import-from :cl-log
                 #:log-message)
-  (:import-from :secsrv
-                #:make-policy
-                #:make-entity
-                #:make-concept
-                #:make-entity-attribute
-                #:make-relational-attribute
-                #:add-concept
-                #:add-attribute
-                #:find-concept
-                #:find-attribute
-                #:inconsistent-policy-error
-                #:register-fk-relation)
   (:export
    #:parse-file
    #:parse-string
    #:load-policy-from-string))
 
 (in-package :secsrv.parser)
-
-;;(defvar *current-statement-name* nil "Used for user-friendly error printing")
 
 ;;; Data structures for parsed representation of ACL policy entities
 
@@ -658,7 +644,7 @@ added without foreign key references."
   "Set up relations between entities properly."
   (check-type parsed-entity <parsed-entity>)
   (loop
-     :with entity = (secsrv::find-concept (entity-name parsed-entity) :policy policy)
+     :with entity = (find-concept (entity-name parsed-entity) :policy policy)
      :for parsed-att :in (concept-attributes parsed-entity)
      :for referenced-table = (attribute-referenced-table parsed-att)
      :when referenced-table :do
@@ -668,22 +654,22 @@ added without foreign key references."
 (defun process-path-attributes (parsed-concept policy)
   (let ((concept (find-concept (concept-name parsed-concept) :policy policy)))
     (loop :for (name . ap) :in (concept-added-attributes parsed-concept)
-       :do ;;(secsrv::verify-access-path-expression concept ap)
+       :do ;;(verify-access-path-expression concept ap)
        (add-attribute concept name (make-relational-attribute name concept ap))))
   t)
 
 (defun process-concept-constraint (parsed-concept policy)
   (let ((concept (find-concept (concept-name parsed-concept) :policy policy))
         (constraint (concept-constraint parsed-concept)))
-    (when (and constraint (secsrv::verify-filtering-constraint concept constraint))
-      (secsrv::set-concept-constraint concept constraint)))
+    (when (and constraint (verify-filtering-constraint concept constraint))
+      (set-concept-constraint concept constraint)))
   t)
 
 (defun process-role (parsed-role policy)
   (let ((concepts (mapcar #'(lambda (cname)
                               (find-concept cname :policy policy))
                           (role-parameters parsed-role))))
-    (apply #'secsrv::policy-add-role policy (role-name parsed-role) concepts))
+    (apply #'policy-add-role policy (role-name parsed-role) concepts))
   t)
 
 (defun process-access-rule (parsed-rule policy)
@@ -696,7 +682,7 @@ added without foreign key references."
       parsed-rule
     (let ((granted-roles (mapcar #'rest (remove-if #'(lambda (g) (eq (car g) :user)) grantees)))
           (granted-users (mapcar #'second (remove-if #'(lambda (g) (eq (car g) :role)) grantees))))
-      (secsrv::policy-add-create-rule
+      (policy-add-create-rule
        policy name access-mode (find-concept cname :policy policy) operations
        :granted-users granted-users
        :granted-roles granted-roles

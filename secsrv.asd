@@ -64,9 +64,9 @@
 
                (:file "policy") ; data structures and helper functions for policy manipulations
 
-               (:file "db-access") ; database access level
                (:file "parser")  ; access control language parser
                (:file "checker") ; policy checker
+               (:file "db-access") ; database access level
 
                (:file "server") ; server
 

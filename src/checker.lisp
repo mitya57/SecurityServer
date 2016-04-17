@@ -1,6 +1,29 @@
 ;;;; -*- Mode: Lisp; Syntax: ANSI-Common-Lisp; Base: 10 -*-
 
-(in-package :secsrv)
+(in-package :cl-user)
+
+(defpackage secsrv.checker
+  (:nicknames :checker)
+  (:use :cl :secsrv.policy :secsrv.sys)
+  (:import-from :cl-log
+                #:log-message)
+  (:import-from :secsrv.policy
+                #:<constraint>
+                #:<access-path>
+                #:<concept>)
+  #+(or)(:import-from :secsrv
+                      #:user-id-by-name
+                      #:evaluate-object-related-query)
+  (:export #:<checker>
+           #:<object>
+           #:object-id
+           #:oject-entity
+           #:has-access
+           #:list-operations
+           #:with-checker))
+
+(in-package :secsrv.checker)
+
 
 (defgeneric has-access (checker user model object operation)
   (:documentation "Verify that access may be granted for request under
@@ -266,8 +289,8 @@ object's identifier.
          (alexandria:eswitch ((first user-attributes-names) :test #'string-equal)
            ("username" (request-user *current-request*))
            ("man_id" (worker-id-by-user-name (request-user *current-request*)))
-           ("id" (user-id-by-name (request-user *current-request*))))))
-      (t (evaluate-object-related-query
+           ("id" (secsrv::user-id-by-name (request-user *current-request*))))))
+      (t (secsrv::evaluate-object-related-query
           (access-path->sql access-path :start-concept object-concept) object)))))
 
 (defgeneric relational-argument-value (argument object object-concept)

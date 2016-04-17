@@ -3,7 +3,26 @@
 ;;;; CBAC policy classes.
 ;;;;
 
-(in-package :secsrv)
+
+(in-package :cl-user)
+
+(defpackage secsrv.policy
+  (:nicknames :policy)
+  (:use :cl :secsrv.sys)
+  (:import-from :cl-log
+                #:log-message)
+  (:import-from :containers
+                #:find-item
+                #:item-at)
+  (:import-from #:alexandria
+                #:define-constant
+                #:when-let)
+  (:export
+   ;; every class or function is exported by the code at the end of this file
+   )
+)
+
+(in-package :secsrv.policy)
 
 ;;;
 ;;; Classes
@@ -338,7 +357,7 @@
     :type (or <constraint> null)
     :initarg :constraint
     :reader ap-item-constraint))
-  (:documentation "Representation of "))
+  (:documentation "Atomic expression of the access path."))
 
 (defmethod concept-constraint-expression ((concept <concept>))
   (when-let (constraint (concept-constraint concept))
@@ -577,3 +596,14 @@ assuming the initial `<concept>' is CONCEPT. Return: list of
           (length (policy-roles the-policy))
           (containers:size (policy-concepts the-policy))
           (length (policy-rules the-policy))))
+
+
+(eval-when (:compile-toplevel :load-toplevel)
+  (let ((p (find-package :secsrv.policy)))
+    (do-symbols (s p)
+      (when (and (eql (symbol-package s) p)
+                 (or (fboundp s)
+                     (find-class s nil))
+                 (not (or (string= "%" (string s) :end2 1))))
+        ;;(format t "Exporting ~A~%" s)
+        (export s)))))

@@ -32,19 +32,22 @@
                ("sqlite3"
                 (let* ((dbf (get-option config "Database" "name"))
                        (relativep (char/= #\/ (aref dbf 0)))
-                       (home (get-home-directory)))
-                  (dbi:connect :sqlite3
-                               :database-name
-                               (format nil "~A" (merge-pathnames
-                                                 (pathname dbf)
-                                                 (when relativep home)))))))))
+                       (home (get-home-directory))
+                       (complete-dbf (format nil "~A" (merge-pathnames
+                                                       (pathname dbf)
+                                                       (when relativep home))))
+                       (conn
+                        (dbi:connect :sqlite3
+                                     :database-name complete-dbf)))
+                  (log-message :info "Connected to ~A: ~A~%" complete-dbf conn)
+                  conn)))))
       (setf *sql-trace* t)
       (setf *current-policy* (secsrv.parser::parse-file acl-filename))
 
       (start-server #'connection-maker :port 8135)
 
-      (with-checker (the-checker #'connection-maker
-                                 :policy *current-policy*)
-        (print (time (has-access the-checker "safonin" "article" 211444 "delete")))
-        (print (time (has-access the-checker "safonin" "book" 211916 "delete"))))
+      (checker:with-checker (the-checker #'connection-maker
+                                        :policy *current-policy*)
+        (print (time (checker:has-access the-checker "safonin" "article" 211444 "delete")))
+        (print (time (checker:has-access the-checker "safonin" "book" 211916 "delete"))))
       )))

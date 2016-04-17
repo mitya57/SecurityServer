@@ -1,6 +1,6 @@
 ;;;; Special variables
 
-(in-package :secsrv)
+(in-package :secsrv.sys)
 
 (defvar *dbcon* nil
   "Default database connection.")
