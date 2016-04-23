@@ -320,27 +320,29 @@ always a list, regardless of the result's actual cardinality.")
   "Compare VALUES using relational OPERATION taking QUANTIFIERS into account."
   (assert (= (length quantifiers) (length values)))
   (when (and values (every #'identity values))
-    (let ((op (resolve-relational-operation operation)))
-      (labels ((cmp (quantifiers values &optional (val nil val-supplied))
-                 (if (null values)
-                     t
-                     (alexandria:eswitch ((or (first quantifiers) "the") :test #'string-equal)
-                       ("the" (and (or (not val-supplied) (funcall op val (first-and-only (first values))))
-                                   (cmp (rest quantifiers) (rest values) (first-and-only (first values)))))
-                       ("count" (and (or (not val-supplied)
-                                         (funcall op val (length (first values))))
-                                     (cmp (rest quantifiers) (rest values) (length (first values)))))
-                       ("some" (loop
-                                  :for x :in (first values)
-                                  :when (and (or (not val-supplied) (funcall op val x))
-                                             (cmp (rest quantifiers) (rest values) x))
-                                  :do (return t)))
-                       ("every" (not (loop
-                                        :for x :in (first values)
-                                        :when (not (and (or (not val-supplied) (funcall op val x))
-                                                        (cmp (rest quantifiers) (rest values) x)))
-                                        :do (return t))))))))
-        (cmp quantifiers values)))))
+    (labels ((op (x y)
+               (when (and x y)
+                 (funcall (resolve-relational-operation operation) x y)))
+             (cmp (quantifiers values &optional (val nil val-supplied))
+               (if (null values)
+                   t
+                   (alexandria:eswitch ((or (first quantifiers) "the") :test #'string-equal)
+                     ("the" (and (or (not val-supplied) (op val (first-and-only (first values))))
+                                 (cmp (rest quantifiers) (rest values) (first-and-only (first values)))))
+                     ("count" (and (or (not val-supplied)
+                                       (op val (length (first values))))
+                                   (cmp (rest quantifiers) (rest values) (length (first values)))))
+                     ("some" (loop
+                                :for x :in (first values)
+                                :when (and (or (not val-supplied) (op val x))
+                                           (cmp (rest quantifiers) (rest values) x))
+                                :do (return t)))
+                     ("every" (not (loop
+                                      :for x :in (first values)
+                                      :when (not (and (or (not val-supplied) (op val x))
+                                                      (cmp (rest quantifiers) (rest values) x)))
+                                      :do (return t))))))))
+      (cmp quantifiers values))))
 
 (defun match-constraint (constraint object object-concept)
   "Check that `<CONSTRAINT>' is satisfied by the OBJECT, assuming it is
@@ -366,7 +368,7 @@ an instance of OBJECT-CONCEPT."
            ("and" (and (match-constraint arg-1 object object-concept) (match-constraint arg-2 object object-concept)))
            ("or" (or (match-constraint arg-1 object object-concept) (match-constraint arg-2 object object-concept)))
            ("not" (not (match-constraint arg-1 object object-concept)))
-           ("exists" (not (empty-query-result-p (access-path->sql arg-1) object)))))
+           ("exists" (not (secsrv::empty-query-result-p (access-path->sql arg-1) object)))))
         ((comparing-operation-p operation)
          ;; relations
          (let ((quantifiers (mapcar #'(lambda (arg)
@@ -376,12 +378,12 @@ an instance of OBJECT-CONCEPT."
                (args-values (mapcar #'(lambda (arg)
                                         (relational-argument-value arg object object-concept))
                                     args)))
-           (progn
-             (log-message :debug "Comparing (~A ~A ~A)" operation arg-1 arg-2)
-             (log-message :debug "arg-1 value = ~A" (first args-values))
-             (log-message :debug "arg-2 value = ~A" (second args-values)))
+             (log-message :debug "Comparing (~A ~@[~A~]~A ~A)"
+                          operation (first quantifiers) (first args-values) (second args-values))
            (let ((cmp-result (compare-values operation quantifiers args-values)))
-             (log-message :debug "... compared to ~A." cmp-result)
+             #+(or)(log-message :debug "Comparing (~A ~A ~A) ==> ~A."
+                          operation (first args-values) (second args-values) cmp-result)
+             (log-message :debug "   ==> ~A." cmp-result)
              cmp-result)))))))
 
 
@@ -429,7 +431,7 @@ CONCEPT, and OPERATION. Returns T or NIL."
             (or (not granted-roles)
                 (some #'(lambda (role)
                           ;;--- TODO: utilize access path used in grantee statement
-                          (user-has-role user (first role)
+                          (secsrv::user-has-role user (first role)
                                          :parameters (mapcar #'(lambda (ap)
                                                                  (evaluate-access-path ap (request-object *current-request*)))
                                                              (rest role))))
@@ -439,7 +441,7 @@ CONCEPT, and OPERATION. Returns T or NIL."
                 (match-constraint rule-constraint
                                   (request-object *current-request*)
                                   (car (last object-concepts)))))))
-      (log-message :trace "RESULT for checking rule ~A is ~A."
+      (log-message :trace "------------> RESULT for checking rule ~A is ~A."
                    (rule-name rule) matching-result)
       matching-result)))
 
