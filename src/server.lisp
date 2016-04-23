@@ -2,11 +2,18 @@
 
 (in-package :secsrv)
 
+(use-package :policy)
+
 (defvar *clack-handle* nil "Instance of the running clack Web-server.")
 
 (defvar *registered-handlers*
   (cl-containers:make-container 'cl-containers:simple-associative-container :test #'equal)
   "A mapping from URIs to handling applications.")
+
+(defvar *udp-server-exiting* nil
+  "Set to non-NIL if the udp server is exitting.")
+(defvar *udp-server-thread* nil
+  "Reference to bordeaux thread object corresponding to the running UDP server.")
 
 
 (defun stop-clack ()
@@ -69,6 +76,71 @@
          :server :hunchentoot)))
 
 
+(defun send-udp (host port msg)
+  "Sends an UDP message to the specified host/port."
+  (let ((socket (usocket:socket-connect host port
+                                        :protocol :datagram
+                                        :element-type '(unsigned-byte 8)))
+        (msg-usb8 (make-array 2 :element-type '(unsigned-byte 8))))
+    (unwind-protect
+         (usocket:socket-send socket msg-usb8 (length msg-usb8))
+      (usocket:socket-close socket))))
+
+
+(defun %start-udp-server (handler port &key (timeout 1) (max-buffer-size 4096))
+  "Start UDP server."
+  (labels ((main-loop ()
+             (setf *udp-server-exiting* nil
+                   *udp-server-thread* (bt:current-thread))
+             (let ((socket (usocket:socket-connect nil 0
+                                                   :protocol :datagram
+                                                   :element-type '(unsigned-byte 8)
+                                                   :timeout timeout
+                                                   :local-host "127.0.0.1"
+                                                   :local-port port)))
+               (unwind-protect
+                    (do ((buffer (make-array max-buffer-size
+                                             :element-type '(unsigned-byte 8))))
+                        (*server-exiting*)
+                      (multiple-value-bind (recv n remote-host remote-port)
+                          (usocket:socket-receive socket buffer max-buffer-size)
+                        (declare (ignore recv))
+                        (funcall handler (subseq buffer 0 n) remote-host remote-post)))
+                 (usocket:socket-close socket)))))
+    (when (null *udp-server-thread*)
+      (bt:make-thread #'main-loop :name (format nil "UDP-SERVER ~D" port)))))
+
+
+(defun %stop-udp-server (port)
+  "Stop UDP server."
+  (when *udp-server-thread*
+    ;; tell the server to exit
+    (setf *udp-server-exiting* t)
+    ;; send a dummy message to clean things up
+    (send-udp "localhost" port "abc")
+    ;; wait for the thread to exit
+    (bt:join-thread *udp-server-thread*)
+    ;; done
+    (setf *udp-server-thread* nil)
+    nil))
+
+
+(defun example-handler (buffer remote-host remote-port)
+  (log-message :trace "HOST: ~A PORT: ~A MESSAGE: ~A~%"
+               ;;*remote-host*  ;(usocket:vector-quad-to-dotted-quad *remote-host*)
+               (usocket:hbo-to-dotted-quad remote-host)
+               remote-port
+               buffer)
+  nil)
+
+(defun start-udp-server (packet-handler)
+  (%start-udp-server 'example-handler 5115))
+
+(defun stop-udp-server ()
+  (%stop-udp-server 5115))
+
+
+
 (defun process-access-request (connection-maker env)
   "Processes HTTP request for access control check. The request is encoded in the requested URL."
   (destructuring-bind (kw-check user-name operation entity-name object-id . tail)
@@ -114,12 +186,12 @@
                             :key #'rule-concept)))
       `(,hunchentoot:+http-ok+
         (:content-type "text/html")
-        (,(format nil "<h3>Concept <b>~A</b></h3>" (concept-name concept))
+        (,(format nil "<h3>Concept: <u>~A</u></h3>" (concept-name concept))
           "Rules associated directly to the concept:"
           ,(format nil "~%<ul>~{<li>~A</li>~%~}</ul>~%"
                    (mapcar #'rule-name direct-rules))
           ;; inherited rules
-          "Rules defined for more abstract concepts:"
+          "Rules inherited from more abstract concepts:"
           ,(format nil "~%<ul>~{<li>~A</li>~%~}</ul>~%"
                    (mapcar #'rule-name indirect-rules))
           )))))

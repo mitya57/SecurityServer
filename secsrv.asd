@@ -47,7 +47,7 @@
                "cl-containers"
                "cl-utilities"
                "cl-dbi" "dbd-sqlite3" "dbd-oracle" ; database access
-               "hunchentoot" "clack" "quri" ; server
+               "bordeaux-threads" "usocket" "hunchentoot" "clack" "quri" ; server
                "py-configparser"
                "alexandria" "esrap" "trivial-types")
   :pathname "src"
