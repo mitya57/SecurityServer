@@ -286,10 +286,16 @@ object's identifier.
     (cond
       ((string-equal qualifier "user")
        (let ((user-attributes-names (cdr (mapcar #'first (cdr ap-expression)))))
-         (alexandria:eswitch ((first user-attributes-names) :test #'string-equal)
+         (alexandria:switch ((first user-attributes-names) :test #'string-equal)
            ("username" (request-user *current-request*))
-           ("man_id" (worker-id-by-user-name (request-user *current-request*)))
-           ("id" (secsrv::user-id-by-name (request-user *current-request*))))))
+           ("man_id" (secsrv::worker-id-by-user-name (request-user *current-request*)))
+           ("id" (secsrv::user-id-by-name (request-user *current-request*)))
+           ;;--- TODO: make user entity a confifurable parameter
+           (t (let ((user-id (secsrv::user-id-by-name (request-user *current-request*)))
+                    (user-entity (find-concept "user")))
+                (secsrv::evaluate-object-related-query
+                 (access-path->sql access-path :start-concept user-entity)
+                 (make-instance '<object> :id user-id :entity user-entity)))))))
       (t (secsrv::evaluate-object-related-query
           (access-path->sql access-path :start-concept object-concept) object)))))
 
@@ -425,16 +431,16 @@ CONCEPT, and OPERATION. Returns T or NIL."
                         #'(lambda (c) (member c sc)))
                       object-concepts))
             (member operation rule-operations :test #'string-equal)
-            ;; User is in the list of rule's users, if such a list specified by the rule
-            (or (not granted-users) (member user granted-users :test #'string=))
-            ;; User is a member of one of parameterized roles, if any
-            (or (not granted-roles)
-                (some #'(lambda (role)
-                          ;;--- TODO: utilize access path used in grantee statement
-                          (secsrv::user-has-role user (first role)
-                                         :parameters (mapcar #'(lambda (ap)
-                                                                 (evaluate-access-path ap (request-object *current-request*)))
-                                                             (rest role))))
+            ;; Subject should belongs to one of the grantees, if the rule defines any
+            (or (and (not granted-users) (not granted-roles))
+                (and granted-users (member user granted-users :test #'string=))
+                ;; User is a member of one of parameterized roles, if any
+                (some #'(lambda (grantee-role)
+                          (apply #'secsrv::user-has-role user (car grantee-role)
+                                 (mapcar #'(lambda (ap)
+                                             (evaluate-access-path ap (request-object *current-request*)
+                                                                   (car (last object-concepts))))
+                                         (rest grantee-role))))
                       granted-roles))
             ;; Rule's additional constraint is satisfied
             (or (not rule-constraint)

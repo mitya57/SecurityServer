@@ -17,7 +17,15 @@
     "CREATE TABLE bitem (
         bitem_id INTEGER PRIMARY KEY,
         b_id INTEGER REFERENCES b(b_id),
-        bitem_value INTEGER)"))
+        bitem_value INTEGER)"
+    ;; tables for user-to-role mebership
+    "CREATE TABLE auth_user (
+        id INTEGER PRIMARY KEY,
+        username VARCHAR2(200))"
+    "CREATE TABLE v_granted_roles (
+        user_id INTEGER,
+        f_permissionstypes_name VARCHAR2(500),
+        f_department_id INTEGER)"))
 
 (defparameter *database-values*
   '("INSERT INTO a VALUES (1)" ; no bitems

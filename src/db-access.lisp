@@ -3,13 +3,15 @@
 ;;;;
 (in-package :secsrv)
 
-(defun run-query (sql-statement)
+(defun run-query (sql-statement &rest params)
   (dbi:with-transaction *dbcon*
     (incf *sql-query-count*)
     (when *sql-trace*
-      (log-message :trace "Evaluating query:~% ~30,,,'*@A~% ~A~% ~30,,,'*@A~%" "*" sql-statement "*"))
+      (log-message :trace "Evaluating query:~% ~30,,,'*@A~% ~A~% ~30,,,'*@A~%~
+                           ~@[Parameters are: ~A~]" "*" sql-statement "*" params))
     (loop
-       :with result = (dbi:execute (dbi:prepare *dbcon* sql-statement))
+       :with parsed = (dbi:prepare *dbcon* sql-statement)
+       :with result = (apply #'dbi:execute parsed params)
        :for row = (dbi:fetch result)
        :while row
        :collect (rest row))))
@@ -41,13 +43,20 @@
   '())
 
 
-(defun user-has-role (user role &key (parameters '()))
-  (declare (ignore parameters))
+(defun user-has-role (user role &rest parameters)
   (check-type role policy:<role>)
-  (log-message :trace "Checking ROLE ~A for user ~A"
-               (role-name role)
+  (log-message :trace "Checking ROLE `~A' for user `~A'."
+               (policy:role-name role)
                user)
-  t)
+  (let* ((sql (format nil "~
+              SELECT count(*) AS cnt ~
+              FROM v_granted_roles ~
+              WHERE user_id = ? AND f_permissionstypes_name = ? ~
+                ~@[AND f_department_id IN (~{~A~^, ~})~]"
+                      (first parameters)))
+         (res (run-query sql (user-id-by-name user) (role-name role))))
+    (or (string= (role-name role) "registered-user")
+        (<= 1 (caar res)))))
 
 
 (defun evaluate-object-related-query (query object &rest objects)

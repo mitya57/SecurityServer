@@ -21,7 +21,7 @@
          (dbd.oracle:*foreign-library-search-paths*
           (let ((path (get-option config "Database" "library-path" "")))
             (when path
-             (pathname path)))))
+             (list (pathname path))))))
     (log-message :info "Using database ~A" (get-option config "Database" "type"))
     (flet ((connection-maker ()
              (alexandria:eswitch ((get-option config "Database" "type") :test #'string=)
@@ -48,6 +48,6 @@
 
       (checker:with-checker (the-checker #'connection-maker
                                         :policy *current-policy*)
-        (print (time (checker:has-access the-checker "safonin" "article" 211444 "delete")))
+        (print (time (checker:has-access the-checker "safonin" "article" 211535 "delete")))
         (print (time (checker:has-access the-checker "safonin" "book" 211916 "delete"))))
       )))

@@ -527,8 +527,9 @@ instance of `<constraint>', or signal `inconsistent-policy-error' condition."
 (defun verify-access-path-expression (concept access-path-expr)
   "Verify that the ACCESS-PATH-EXPR forms a valid attributes chain
 assuming the initial `<concept>' is CONCEPT. Return: list of
-<access-path-item>s, or signal `inconsistent-policy-error' condition."
-  (let ((access-path-expr (if (eq (access-path-qualifier access-path-expr) :object)
+<access-path-item>s, or signals `inconsistent-policy-error' condition."
+  (let ((access-path-expr (if (member (access-path-qualifier access-path-expr)
+                                      '(:object :user))
                               (drop-access-path-qualifier access-path-expr)
                               access-path-expr)))
     (loop :with current-concept = concept
@@ -541,13 +542,22 @@ assuming the initial `<concept>' is CONCEPT. Return: list of
        (inconsistent-policy-error "Unknown attribute `~A.~A'."
                                   (concept-name current-concept)
                                   attribute-name)
-       ;;--- FIXME: copy full access path, not the first attribute
+       ;; It current attribute is an access path then we should jump to
+       ;; the last entity attribute adressed by the access path.
+       ;;
+       ;;--- FIXME: use full access path, not the first
+       ;; attribute. This path should be appended to the result.
        :if (subtypep (type-of att) '<relational-attribute>)
        :do
-       (destructuring-bind (ap-prefix (att-name . constraint) &rest items)
+       (destructuring-bind (ap-keyword (att-name . constraint) &rest items)
            (access-path-expression (attribute-access-path att))
-         (declare (ignore ap-prefix constraint items))
-         (setf att (find-attribute current-concept att-name)))
+         (declare (ignore ap-keyword constraint items))
+         (setf att (find-attribute current-concept att-name))
+         (when (null att)
+           (inconsistent-policy-error "Attribute `~A' (substituted for the non-entity attribute `~A') does not exists defined for the concept `~A'."
+                                      att-name
+                                      attribute-name
+                                      (concept-name current-concept))))
        :do
        (progn
          ;; jump to the next entity
@@ -579,12 +589,23 @@ assuming the initial `<concept>' is CONCEPT. Return: list of
                              ;;:roles granted-roles
                              :users granted-users)))
     ;; Check that granted roles match roles definitions (access paths select expected objects)
-    (loop :for (role-name . access-paths) :in granted-roles :do
-       (loop :with role = (find-role role-name :policy policy)
-          :for ap :in access-paths :and parameter-concept :in (role-parameters role)
+    (loop :for (role-name . access-paths) :in granted-roles
+       :for role = (find-role role-name :policy policy)
+       :if role
+       :do
+       (loop :for ap :in access-paths :and parameter-concept :in (role-parameters role)
           :do
           (log-message :debug "Checking granted role '~A' parameter ~A.~%" role-name (concept-name parameter-concept))
-          #+(or)(verify-access-path-expression concept ap)))
+          ;;--- FIXME: implement some static access path checking (add target concept for generic attributes?)
+          #+(or)(verify-access-path-expression concept ap)
+          :finally (push (cons role (mapcar #'(lambda (ap-expr)
+                                                (make-access-path concept ap-expr))
+                                            access-paths))
+                         (rule-roles rule)))
+       :else :do
+       (inconsistent-policy-error "Undefined role `~A' referenced in the rule `~A'."
+                                  role-name
+                                  rule-name))
     (push rule (policy-rules policy))
     rule))
 
