@@ -3,7 +3,8 @@
 ;;;;
 (in-package :secsrv)
 
-(defun run-query (sql-statement &rest params)
+(defun %run-query (sql-statement &rest params)
+  ;;--- FIXME: this function assumes that the SQL query always selects only one column
   (dbi:with-transaction *dbcon*
     (incf *sql-query-count*)
     (when *sql-trace*
@@ -15,6 +16,20 @@
        :for row = (dbi:fetch result)
        :while row
        :collect (rest row))))
+
+(defun run-query (sql-statement &rest params)
+  "Evaluates SQL statement and put the result into current request cache."
+  (flet ((digest-as-string (string)
+           (let ((digest (md5:md5sum-string string)))
+             (format nil
+                     "~(~{~2,'0X~}~)"
+                     (map 'list #'identity digest)))))
+    (let* ((digest (digest-as-string (format nil "~A ~A" sql-statement params)))
+           (chached-value (item-at (checker::request-cache *current-request*) digest)))
+      (if chached-value
+          chached-value
+          (setf (item-at (checker::request-cache *current-request*) digest)
+                (apply #'%run-query sql-statement params))))))
 
 (defun user-id-by-name (user-name)
   "Returns user-id by USER-NAME."

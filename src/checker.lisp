@@ -55,7 +55,13 @@
 (defclass <request> ()
   ((user-name :type string :initarg :user-name :accessor request-user)
    (object :type <object> :initarg :object :accessor request-object)
-   (operation :type string :initarg :operation :accessor request-operation))
+   (operation :type string :initarg :operation :accessor request-operation)
+   (cache
+    :initform (cl-containers:make-container 'containers:simple-associative-container
+                                            :test #'equal)
+    :accessor request-cache
+    :documentation "Hash table for storing all SQL results computed
+    during the evaluation of this request."))
   (:documentation "A collection of values representing user's request."))
 
 (defun make-access-request (user-name entity object-id operation)
@@ -423,31 +429,35 @@ CONCEPT, and OPERATION. Returns T or NIL."
     (log-message :debug "rule-concept=~A, object concepts=~{~A~^, ~}"
                  (concept-name rule-concept)
                  (mapcar #'concept-name object-concepts))
-    (let ((matching-result
-           (and
-            ;; This rule is defined for the right concept and operation
-            (or (member rule-concept object-concepts)
-                (some (let ((sc (ho-walk rule-concept)))
-                        #'(lambda (c) (member c sc)))
-                      object-concepts))
-            (member operation rule-operations :test #'string-equal)
-            ;; Subject should belongs to one of the grantees, if the rule defines any
-            (or (and (not granted-users) (not granted-roles))
-                (and granted-users (member user granted-users :test #'string=))
-                ;; User is a member of one of parameterized roles, if any
-                (some #'(lambda (grantee-role)
-                          (apply #'secsrv::user-has-role user (car grantee-role)
-                                 (mapcar #'(lambda (ap)
-                                             (evaluate-access-path ap (request-object *current-request*)
-                                                                   (car (last object-concepts))))
-                                         (rest grantee-role))))
-                      granted-roles))
-            ;; Rule's additional constraint is satisfied
-            (or (not rule-constraint)
-                (match-constraint rule-constraint
-                                  (request-object *current-request*)
-                                  (car (last object-concepts)))))))
-      (log-message :trace "------------> RESULT for checking rule ~A is ~A."
+    (let* ((matching-concepts
+            ;; The list of the most specific object concepts in a subtree rooted at rule-concept
+            (delete-if-not (let ((sc (ho-walk rule-concept)))
+                             #'(lambda (obj-c)
+                                 (member obj-c sc)))
+                           (sort object-concepts #'subtypep :key #'class-of)))
+           (treat-object-as (car (last matching-concepts)))
+           (matching-result
+            (and
+             ;; This rule is defined for the right concept and operation
+             (not (null matching-concepts))
+             (member operation rule-operations :test #'string-equal)
+             ;; Subject should belongs to one of the grantees, if the rule defines any
+             (or (and (not granted-users) (not granted-roles))
+                 (and granted-users (member user granted-users :test #'string=))
+                 ;; User is a member of one of parameterized roles, if any
+                 (some #'(lambda (grantee-role)
+                           (apply #'secsrv::user-has-role user (car grantee-role)
+                                  (mapcar #'(lambda (ap)
+                                              (evaluate-access-path ap (request-object *current-request*)
+                                                                    treat-object-as))
+                                          (rest grantee-role))))
+                       granted-roles))
+             ;; Rule's additional constraint is satisfied
+             (or (not rule-constraint)
+                 (match-constraint rule-constraint
+                                   (request-object *current-request*)
+                                   treat-object-as)))))
+      (log-message :trace "--------> RESULT for checking rule ~A is ~A."
                    (rule-name rule) matching-result)
       matching-result)))
 
