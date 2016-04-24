@@ -44,6 +44,8 @@
       (setf *sql-trace* t)
       (setf *current-policy* (secsrv.parser::parse-file acl-filename))
 
+      (checker:clear-statistics)
+
       (start-server #'connection-maker :port 8135)
 
       (checker:with-checker (the-checker #'connection-maker

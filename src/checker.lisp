@@ -17,10 +17,11 @@
   (:export #:<checker>
            #:<object>
            #:object-id
-           #:oject-entity
+           #:object-entity
            #:has-access
            #:list-operations
-           #:with-checker))
+           #:with-checker
+           #:clear-statistics))
 
 (in-package :secsrv.checker)
 
@@ -416,6 +417,38 @@ all concepts that the object belongs to. Returns a list of `<concept>'s."
       (tree-search entity))))
 
 
+(defun match-rule-by-concepts (user object-concepts operation rule)
+  "Check that the `RULE' matches the access request specified by the USER,
+CONCEPT, and OPERATION. Rule's constraint is not evaluated. Returns T or NIL."
+  (with-accessors ((granted-users rule-users)
+                   (granted-roles rule-roles)
+                   (rule-concept rule-concept)
+                   (rule-operations rule-operations)
+                   (rule-constraint rule-constraint))
+      rule
+    (let* ((matching-concepts
+            ;; The list of the most specific object concepts in a subtree rooted at rule-concept
+            (delete-if-not (let ((sc (ho-walk rule-concept)))
+                             #'(lambda (obj-c)
+                                 (member obj-c sc)))
+                           (sort object-concepts #'subtypep :key #'class-of)))
+           (treat-object-as (car (last matching-concepts))))
+      (and
+       ;; This rule is defined for the right concept and operation
+       (not (null matching-concepts))
+       (member operation rule-operations :test #'string-equal)
+       ;; Subject should belongs to one of the grantees, if the rule defines any
+       (or (and (not granted-users) (not granted-roles))
+           (and granted-users (member user granted-users :test #'string=))
+           ;; User is a member of one of parameterized roles, if any
+           (some #'(lambda (grantee-role)
+                     (apply #'secsrv::user-has-role user (car grantee-role)
+                            (mapcar #'(lambda (ap)
+                                        (evaluate-access-path ap (request-object *current-request*)
+                                                              treat-object-as))
+                                    (rest grantee-role))))
+                 granted-roles))))))
+
 (defun match-rule (user object-concepts operation rule)
   "Check that the `RULE' matches the access request specified by the USER,
 CONCEPT, and OPERATION. Returns T or NIL."
@@ -457,9 +490,37 @@ CONCEPT, and OPERATION. Returns T or NIL."
                  (match-constraint rule-constraint
                                    (request-object *current-request*)
                                    treat-object-as)))))
-      (log-message :trace "--------> RESULT for checking rule ~A is ~A."
-                   (rule-name rule) matching-result)
+      (log-message :trace "--------> RESULT for checking rule ~A on ~A is ~A."
+                   (rule-name rule) (and treat-object-as (concept-name treat-object-as)) matching-result)
       matching-result)))
+
+(defparameter *rule-statistics* (containers:make-container 'containers:simple-associative-container))
+
+(defclass <rule-usage-statistics> ()
+  ((hits :type integer :initform 0 :accessor stats-hits)
+   (decisions :type integer :initform 0 :accessor stats-decisions)
+   (total-time :type double-float :initform 0d0 :accessor stats-time)))
+
+(defun update-rule-stats (rule time deciding-p)
+  (let* ((stats (containers:item-at *rule-statistics* rule))
+         (local-stats (or stats (make-instance '<rule-usage-statistics>))))
+    (incf (stats-hits local-stats))
+    (incf (stats-time local-stats) time)
+    (when deciding-p (incf (stats-decisions local-stats)))
+    (when (null stats)
+      (setf (containers:item-at *rule-statistics* rule) local-stats))
+    t))
+
+(defun rule-usefulness (rule)
+  (let ((stats (containers:item-at *rule-statistics* rule)))
+    (if (and stats (< 0 (stats-hits stats)))
+        (* (/ (stats-decisions stats) (stats-hits stats))
+           (/ (stats-hits stats) (stats-time stats)))
+        0)))
+
+(defun clear-statistics ()
+  (setf *rule-statistics* (containers:make-container 'containers:simple-associative-container))
+  t)
 
 (defmethod has-access ((checker <checker>) (user string) (entity-name string) (object-id integer) (operation string))
   "Check that USER has permission to evaluate OPERATION on object of
@@ -479,15 +540,25 @@ Return multiple values:
          (concepts (find-matching-concepts (request-object *current-request*)))
          (operation (string-downcase operation)))
     (log-message :debug "Object belongs to ~A concepts." (mapcar #'concept-name concepts))
-    (let ((access-check-result
-           (and (some #'(lambda (r)
-                          (and (eql (rule-mode r) :allow)
-                               (match-rule user concepts operation r)))
-                      (policy-rules policy))
-                (notany #'(lambda (r)
-                            (and (eql (rule-mode r) :deny)
-                                 (match-rule user concepts operation r)))
-                        (policy-rules policy)))))
+    (let* ((matched-rules
+            (delete-if-not #'(lambda (r)
+                               (match-rule-by-concepts user concepts operation r))
+                           (policy-rules policy)))
+           (access-check-result
+            (loop
+               :for positive-rule-found = nil :then (or positive-rule-found (and positive-rule-p match-p))
+               :for rule :in (sort matched-rules #'> :key #'rule-usefulness)
+               :for positive-rule-p = (eq (rule-mode rule) :allow)
+               :for (time skipped match-p) = (let* ((skip (and positive-rule-found positive-rule-p))
+                                                    (start-time (get-internal-real-time))
+                                                    (result (or skip (match-rule user concepts operation rule))))
+                                               (list (/ (- (get-internal-real-time) start-time) internal-time-units-per-second)
+                                                     skip
+                                                     result))
+               :when (not skipped)
+               :do (update-rule-stats (car matched-rules) time match-p)
+               :when (and (not positive-rule-p) match-p) :do (return nil)
+               :finally (return positive-rule-found))))
       (log-message :info "~&*** Access check (~:[DENIED~;ALLOWED~]) took ~F seconds and ~D SQL queries. ***~%"
                    access-check-result
                    (/ (- (get-internal-real-time) start-time) internal-time-units-per-second)
