@@ -46,7 +46,7 @@
   :depends-on ("cl-log"
                "cl-containers"
                "cl-utilities"
-               "cl-dbi" "dbd-sqlite3" "dbd-oracle" ; database access
+               "cl-dbi" "dbd-sqlite3" "dbd-oracle" "md5" ; database access
                "bordeaux-threads" "usocket" "hunchentoot" "clack" "quri" ; server
                "py-configparser"
                "alexandria" "esrap" "trivial-types")
