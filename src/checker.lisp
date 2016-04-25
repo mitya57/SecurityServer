@@ -10,7 +10,8 @@
   (:import-from :secsrv.policy
                 #:<constraint>
                 #:<access-path>
-                #:<concept>)
+                #:<concept>
+                #:find-concept)
   #+(or)(:import-from :secsrv
                       #:user-id-by-name
                       #:evaluate-object-related-query)
