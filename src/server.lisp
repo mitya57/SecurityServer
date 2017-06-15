@@ -1,8 +1,14 @@
 ;;;
 
-(in-package :secsrv)
+(defpackage :secsrv.server
+  (:nicknames :server)
+  (:use :cl :secsrv.sys :secsrv.policy)
+  (:import-from :cl-log
+                #:log-message)
+  (:export #:start-server))
 
-(use-package :policy)
+
+(in-package :secsrv.server)
 
 (defvar *clack-handle* nil "Instance of the running clack Web-server.")
 

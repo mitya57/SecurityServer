@@ -46,7 +46,7 @@
 
       (checker:clear-statistics)
 
-      (start-server #'connection-maker :port 8135)
+      (server:start-server #'connection-maker :port (get-option config "Server" "port" 8135))
 
       (checker:with-checker (the-checker #'connection-maker
                                         :policy *current-policy*)
