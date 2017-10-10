@@ -513,10 +513,11 @@ CONCEPT, and OPERATION. Returns T or NIL."
     t))
 
 (defun rule-usefulness (rule)
+  "Returns a number from 0 to infinity. The higher it is, the earlier the
+  rule should be sorted."
   (let ((stats (containers:item-at *rule-statistics* rule)))
     (if (and stats (< 0 (stats-hits stats)))
-        (* (/ (stats-decisions stats) (stats-hits stats))
-           (/ (stats-hits stats) (stats-time stats)))
+        (/ (stats-decisions stats) (stats-time stats))
         0)))
 
 (defun clear-statistics ()
