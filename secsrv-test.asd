@@ -14,5 +14,6 @@
   :components
   ((:file "package")
    (:file "test-parser")
+   (:file "test-queryset")
    (:file "populate-db")
    (:file "test-policy")))
