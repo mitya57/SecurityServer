@@ -65,6 +65,7 @@
                (:file "policy") ; data structures and helper functions for policy manipulations
 
                (:file "parser")  ; access control language parser
+               (:file "queryset") ; queryset classes and functions
                (:file "checker") ; policy checker
                (:file "db-access") ; database access level
 

@@ -5,7 +5,7 @@
 (in-package :cl-user)
 
 (defpackage secsrv.queryset
-  (nicknames :qs)
+  (:nicknames :qs)
   (:use :cl :alexandria)
   (:import-from :cl-log
                 #:log-message)
@@ -21,7 +21,7 @@
 
 
 (defclass <select-field> ()
-  ((queryset :type queryset
+  ((queryset :type <queryset>
              :documentation "The queryset this field belongs to.")
    (table-name :type (or string null)
                :documentation "Name of the table this field cames from.")
@@ -110,7 +110,7 @@
    (aggregates :initform nil
                :documentation "List of selected aggregated fields.")
    (main-table
-    :type (or string queryset model)
+    :type (or string <queryset>)
     :initarg :main-table
     :initform (error "Queryset main table is not specified")
     :accessor queryset-main-table
@@ -153,10 +153,10 @@
   "Generate SQL query specified by queryset QS."
   (labels ((from-clause ()
              (etypecase (queryset-main-table qs)
-               (model (format nil "~A AS ~A"
-                              (model-table (queryset-main-table qs))
+               (string (format nil "~A AS ~A"
+                              (queryset-main-table qs)
                               (queryset-main-table-alias qs)))
-               (queryset (format nil "(~%~A~%) ~A"
+               (<queryset> (format nil "(~%~A~%) ~A"
                                  (sql<-queryset (queryset-main-table qs))
                                  (queryset-main-table-alias qs))))))
     (with-output-to-string (s)
@@ -176,7 +176,7 @@
                       (queryset-joins qs)))
       s)))
 
-(defmethod print-object ((qs queryset) stream)
+(defmethod print-object ((qs <queryset>) stream)
   #+(or)(format stream "#<~A: ~{~A ~}>"
           (queryset-main-table qs)
           (mapcar #'field-alias (queryset-fields qs)))
@@ -200,8 +200,8 @@
     (if (and fields (not search-available))
         (find-if #'string-equal fields :key #'field-alias)
         (etypecase main-table
-          (model (find-model-attribute name main-table))
-          (queryset (find-qs-attribute name main-table))))))
+          ;; (model (find-model-attribute name main-table))
+          (<queryset> (find-qs-attribute name main-table))))))
 
 (defun expression-dependencies (expression)
   "Find all referenes to fully qualified fields in the
@@ -227,7 +227,7 @@ holds field name."
   "Add new join to the queryset QS using models relation names."
   (check-type qs <queryset> "a valid qs argument")
   (check-type related-name string "a valid related-name argument")
-  (check-type (queryset-main-table qs) model "a valid main-table for simplified join")
+  (check-type (queryset-main-table qs) string "a valid main-table for simplified join")
   (log-message :trace "Adding join ~A~%" related-name)
   (when-let* ((qs-attribute (find-model-attribute related-name (queryset-main-table qs)))
               (model-to-join (find-related-model related-name (queryset-main-table qs)))
@@ -257,7 +257,7 @@ holds field name."
 
 (defun add-select-expression (qs expression &optional (alias nil))
   "Make a select-field and appends it to the list of fields selected by QS."
-  (check-type qs queryset "a valid qs argument")
+  (check-type qs <queryset> "a valid qs argument")
   ;;--- TODO: Check for aliases collision
   (let ((field (make-select-field expression alias))
         (deps (expression-dependencies expression)))
