@@ -402,20 +402,23 @@ an instance of OBJECT-CONCEPT."
 
 
 (defun find-matching-concepts (object)
-  "Walk the concept's hierarrchy tree starting at OBJECT's `<entity>' and find
+  "Walk the concept's hierarchy tree starting at OBJECT's `<entity>' and find
 all concepts that the object belongs to. Returns a list of `<concept>'s."
-  (with-accessors ((entity object-entity)
-                   (object-id id))
-      object
-    (labels ((match (concept)
-               (or (null (concept-constraint concept))
-                   (match-constraint (concept-constraint concept) object (object-entity object))))
-             (tree-search (concept)
-               (when (match concept)
-                 (cons concept
-                       (loop :for sub-concept :in (ho-children concept)
-                          :nconcing (tree-search sub-concept))))))
-      (tree-search entity))))
+  (generators:make-generator ()
+    (with-accessors ((entity object-entity)
+                     (object-id id))
+        object
+      (labels ((match (concept)
+                 (or (null (concept-constraint concept))
+                     (match-constraint (concept-constraint concept) object (object-entity object))))
+               (tree-search (concept)
+                 (when (match concept)
+                   (generators:yield concept)
+                   (loop :for sub-concept :in (ho-children concept)
+                      :do (tree-search sub-concept)))))
+      (tree-search entity)
+      (generators:yield nil)
+      t))))
 
 
 (defun match-rule-by-concepts (user object-concepts operation rule)
@@ -539,32 +542,37 @@ Return multiple values:
          (policy (checker-policy checker))
          (entity (find-concept entity-name :policy policy))
          (*current-request* (make-access-request user entity object-id operation))
-         (concepts (find-matching-concepts (request-object *current-request*)))
+         (concepts-generator (find-matching-concepts (request-object *current-request*)))
          (operation (string-downcase operation)))
     (log-message :debug "Object belongs to ~A concepts." (mapcar #'concept-name concepts))
-    (let* ((matched-rules
-            (delete-if-not #'(lambda (r)
-                               (match-rule-by-concepts user concepts operation r))
-                           (policy-rules policy)))
-           (access-check-result
-            (loop
-               :for positive-rule-found = nil :then (or positive-rule-found (and positive-rule-p match-p))
-               :for rule :in (sort matched-rules #'> :key #'rule-usefulness)
-               :for positive-rule-p = (eq (rule-mode rule) :allow)
-               :for (time skipped match-p) = (let* ((skip (and positive-rule-found positive-rule-p))
-                                                    (start-time (get-internal-real-time))
-                                                    (result (or skip (match-rule user concepts operation rule))))
-                                               (list (/ (- (get-internal-real-time) start-time) internal-time-units-per-second)
-                                                     skip
-                                                     result))
-               :when (not skipped)
-               :do (update-rule-stats (car matched-rules) time match-p)
-               :when (and (not positive-rule-p) match-p) :do (return nil)
-               :finally (return positive-rule-found))))
-      (log-message :info "~&*** Access check (~:[DENIED~;ALLOWED~]) took ~F seconds and ~D SQL queries. ***~%"
-                   access-check-result
-                   (/ (- (get-internal-real-time) start-time) internal-time-units-per-second)
-                   *sql-query-count*)
-      (values access-check-result
-              (/ (- (get-internal-real-time) start-time) internal-time-units-per-second)
-              *sql-query-count*))))
+    (loop
+       :for concept = (generators:next concepts-generator)
+       :while concept
+       :do
+          (let* ((concepts (list concept))
+                 (matched-rules
+                   (delete-if-not #'(lambda (r)
+                                      (eql concept (rule-concept r)))
+                                  (policy-rules policy)))
+                 (access-check-result
+                  (loop
+                     :for positive-rule-found = nil :then (or positive-rule-found (and positive-rule-p match-p))
+                     :for rule :in (sort matched-rules #'> :key #'rule-usefulness)
+                     :for positive-rule-p = (eq (rule-mode rule) :allow)
+                     :for (time skipped match-p) = (let* ((skip (and positive-rule-found positive-rule-p))
+                                                          (start-time (get-internal-real-time))
+                                                          (result (or skip (match-rule user concepts operation rule))))
+                                                     (list (/ (- (get-internal-real-time) start-time) internal-time-units-per-second)
+                                                           skip
+                                                           result))
+                     :when (not skipped)
+                     :do (update-rule-stats (car matched-rules) time match-p)
+                     :when (and (not positive-rule-p) match-p) :do (return nil)
+                     :finally (return positive-rule-found))))
+            (log-message :info "~&*** Access check (~:[DENIED~;ALLOWED~]) took ~F seconds and ~D SQL queries. ***~%"
+                         access-check-result
+                         (/ (- (get-internal-real-time) start-time) internal-time-units-per-second)
+                         *sql-query-count*)
+            (values access-check-result
+                    (/ (- (get-internal-real-time) start-time) internal-time-units-per-second)
+                    *sql-query-count*)))))
