@@ -70,7 +70,7 @@
                 ~@[AND f_department_id IN (~{~A~^, ~})~]"
                       (first parameters)))
          (res (run-query sql (user-id-by-name user) (policy:role-name role))))
-    (or (string= (role-name role) "registered-user")
+    (or (string= (policy:role-name role) "registered-user")
         (<= 1 (caar res)))))
 
 
