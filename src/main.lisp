@@ -46,7 +46,8 @@
 
       (checker:clear-statistics)
 
-      (server:start-server #'connection-maker :port (get-option config "Server" "port" 8135))
+      (server:start-server #'connection-maker
+        :port (py-configparser:get-option config "Server" "port" :defaults 8135 :type :number))
 
       (checker:with-checker (the-checker #'connection-maker
                                         :policy *current-policy*)
