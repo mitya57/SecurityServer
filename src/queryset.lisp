@@ -81,7 +81,7 @@
          :initarg :mode
          :accessor join-mode
          :documentation "Join mode, e.g. JOIN, or LEFT JOIN.")
-   (queryset :type <queryset>
+   (queryset :type (or string <queryset>)
              :initarg :queryset
              :accessor join-queryset)
    (table-alias :type string :initarg :alias :accessor join-alias)
@@ -158,7 +158,11 @@
                               (queryset-main-table-alias qs)))
                (<queryset> (format nil "(~%~A~%) ~A"
                                  (sql<-queryset (queryset-main-table qs))
-                                 (queryset-main-table-alias qs))))))
+                                 (queryset-main-table-alias qs)))))
+           (join-table (join)
+             (etypecase (join-queryset join)
+               (<queryset> (format nil "(~A)" (sql<-queryset (join-queryset join))))
+               (string (join-queryset join)))))
     (with-output-to-string (s)
       (if (queryset-fields qs)
           (format s "SELECT ~:{~a AS ~a~%~:^       , ~}"
@@ -167,10 +171,10 @@
           (format s "SELECT *~%"))
       (format s "~&FROM ~A" (from-clause))
       ;; table joins
-      (format s "~:{~&~A (~A) ~A ON (~A)~}"
+      (format s "~:{~&~A ~A ~A ON (~A)~}"
               (mapcar #'(lambda (join)
                           (list (join-mode join)
-                                (sql<-queryset (join-queryset join))
+                                (join-table join)
                                 (join-alias join)
                                 (relation-expression (first (join-relations join)))))
                       (queryset-joins qs)))
