@@ -63,6 +63,12 @@
    (right :type <join-operand> :initarg :right :accessor right-operand  :initform (error "No right join operand supplied.")))
   (:documentation "Description of one join relation."))
 
+(defun make-relation (left operator right)
+  (make-instance '<join-relation>
+    :left (make-instance '<join-operand> :expression left)
+    :operator operator
+    :right (make-instance '<join-operand> :expression right)))
+
 (defun relation-expression (relation)
   (format nil "~A ~A ~A"
           (join-operand-expression (left-operand relation))

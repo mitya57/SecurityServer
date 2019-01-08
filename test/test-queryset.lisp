@@ -17,26 +17,14 @@
                         secsrv.queryset::+left-join+
                         "journal" ;; table
                         "T1" ;; alias
-                        (make-instance 'secsrv.queryset::<join-relation>
-                          :left (make-instance 'secsrv.queryset::<join-operand> :expression "T0.f_journal_id")
-                          :operator "="
-                          :right (make-instance 'secsrv.queryset::<join-operand> :expression "T1.f_journal_id"))))
+                        (secsrv.queryset::make-relation "T0.f_journal_id" "=" "T1.f_journal_id")))
         (collection-join (secsrv.queryset::make-join
                            secsrv.queryset::+join+
                            (secsrv.queryset::make-default-queryset "collection")
                            "T2" ;; alias
-                           (make-instance 'secsrv.queryset::<join-relation>
-                             :left (make-instance 'secsrv.queryset::<join-operand> :expression "T0.f_collection_id")
-                             :operator "="
-                             :right (make-instance 'secsrv.queryset::<join-operand> :expression "T2.f_collection_id"))))
-        (article-id-filter (make-instance 'secsrv.queryset::<join-relation>
-                             :left (make-instance 'secsrv.queryset::<join-operand> :expression "T0.f_article_id")
-                             :operator "="
-                             :right (make-instance 'secsrv.queryset::<join-operand> :expression "211459")))
-        (collection-id-filter (make-instance 'secsrv.queryset::<join-relation>
-                                :left (make-instance 'secsrv.queryset::<join-operand> :expression "T2.f_collection_id")
-                                :operator "IS NOT"
-                                :right (make-instance 'secsrv.queryset::<join-operand> :expression "NULL")))
+                           (secsrv.queryset::make-relation "T0.f_collection_id" "=" "T2.f_collection_id")))
+        (article-id-filter (secsrv.queryset::make-relation "T0.f_article_id" "=" "211459"))
+        (collection-id-filter (secsrv.queryset::make-relation "T2.f_collection_id" "IS NOT" "NULL"))
         (expected-query (concatenate-newline
                           "SELECT f_article_id AS id"
                           "FROM article AS T0"
