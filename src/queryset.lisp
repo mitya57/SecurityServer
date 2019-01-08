@@ -121,6 +121,7 @@
           :accessor queryset-joins
           :documentation "List of query's joins.")
    (where :initform nil
+          :accessor queryset-where
           :documentation "List of statements.")
    (groupby :initform nil
             :documentation "List of selcted fields' aliases.")
@@ -178,6 +179,9 @@
                                 (join-alias join)
                                 (relation-expression (first (join-relations join)))))
                       (queryset-joins qs)))
+      ;; WHERE constraints
+      (format s "~{~#[~:;~&WHERE ~@{~A~#[~:;~&AND ~]~}~]~:}"
+              (mapcar #'relation-expression (queryset-where qs)))
       s)))
 
 (defmethod print-object ((qs <queryset>) stream)

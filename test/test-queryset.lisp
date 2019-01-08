@@ -29,13 +29,25 @@
                              :left (make-instance 'secsrv.queryset::<join-operand> :expression "T0.f_collection_id")
                              :operator "="
                              :right (make-instance 'secsrv.queryset::<join-operand> :expression "T2.f_collection_id"))))
+        (article-id-filter (make-instance 'secsrv.queryset::<join-relation>
+                             :left (make-instance 'secsrv.queryset::<join-operand> :expression "T0.f_article_id")
+                             :operator "="
+                             :right (make-instance 'secsrv.queryset::<join-operand> :expression "211459")))
+        (collection-id-filter (make-instance 'secsrv.queryset::<join-relation>
+                                :left (make-instance 'secsrv.queryset::<join-operand> :expression "T2.f_collection_id")
+                                :operator "IS NOT"
+                                :right (make-instance 'secsrv.queryset::<join-operand> :expression "NULL")))
         (expected-query (concatenate-newline
                           "SELECT f_article_id AS id"
                           "FROM article AS T0"
                           "LEFT JOIN journal T1 ON (T0.f_journal_id = T1.f_journal_id)"
                           "JOIN (SELECT *"
-                          "FROM collection AS T0) T2 ON (T0.f_collection_id = T2.f_collection_id)")))
+                          "FROM collection AS T0) T2 ON (T0.f_collection_id = T2.f_collection_id)"
+                          "WHERE T0.f_article_id = 211459"
+                          "AND T2.f_collection_id IS NOT NULL")))
     (secsrv.queryset::add-select-expression queryset "f_article_id" "id")
     (setf (secsrv.queryset::queryset-joins queryset)
           (append (secsrv.queryset::queryset-joins queryset) `(,journal-join ,collection-join)))
+    (setf (secsrv.queryset::queryset-where queryset)
+          (append (secsrv.queryset::queryset-where queryset) `(,article-id-filter ,collection-id-filter)))
     (ensure-same expected-query (secsrv.queryset::sql<-queryset queryset))))
