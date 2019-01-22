@@ -63,6 +63,12 @@
    (right :type <join-operand> :initarg :right :accessor right-operand  :initform (error "No right join operand supplied.")))
   (:documentation "Description of one join relation."))
 
+(defun make-relation (left operator right)
+  (make-instance '<join-relation>
+    :left (make-instance '<join-operand> :expression left)
+    :operator operator
+    :right (make-instance '<join-operand> :expression right)))
+
 (defun relation-expression (relation)
   (format nil "~A ~A ~A"
           (join-operand-expression (left-operand relation))
@@ -81,7 +87,7 @@
          :initarg :mode
          :accessor join-mode
          :documentation "Join mode, e.g. JOIN, or LEFT JOIN.")
-   (queryset :type <queryset>
+   (queryset :type (or string <queryset>)
              :initarg :queryset
              :accessor join-queryset)
    (table-alias :type string :initarg :alias :accessor join-alias)
@@ -121,6 +127,7 @@
           :accessor queryset-joins
           :documentation "List of query's joins.")
    (where :initform nil
+          :accessor queryset-where
           :documentation "List of statements.")
    (groupby :initform nil
             :documentation "List of selcted fields' aliases.")
@@ -158,7 +165,11 @@
                               (queryset-main-table-alias qs)))
                (<queryset> (format nil "(~%~A~%) ~A"
                                  (sql<-queryset (queryset-main-table qs))
-                                 (queryset-main-table-alias qs))))))
+                                 (queryset-main-table-alias qs)))))
+           (join-table (join)
+             (etypecase (join-queryset join)
+               (<queryset> (format nil "(~A)" (sql<-queryset (join-queryset join))))
+               (string (join-queryset join)))))
     (with-output-to-string (s)
       (if (queryset-fields qs)
           (format s "SELECT ~:{~a AS ~a~%~:^       , ~}"
@@ -167,13 +178,16 @@
           (format s "SELECT *~%"))
       (format s "~&FROM ~A" (from-clause))
       ;; table joins
-      (format s "~:{~&~A (~A) ~A ON (~A)~}"
+      (format s "~:{~&~A ~A ~A ON (~A)~}"
               (mapcar #'(lambda (join)
                           (list (join-mode join)
-                                (sql<-queryset (join-queryset join))
+                                (join-table join)
                                 (join-alias join)
                                 (relation-expression (first (join-relations join)))))
                       (queryset-joins qs)))
+      ;; WHERE constraints
+      (format s "~{~#[~:;~&WHERE ~@{~A~#[~:;~&AND ~]~}~]~:}"
+              (mapcar #'relation-expression (queryset-where qs)))
       s)))
 
 (defmethod print-object ((qs <queryset>) stream)
