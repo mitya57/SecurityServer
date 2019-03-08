@@ -284,7 +284,8 @@ holds field name."
        :do
        (let ((join (find-join qs table-name)))
          (if join
-             (unless (find-qs-attribute field-name (join-queryset join))
+             (unless (or (stringp (join-queryset join))
+                         (find-qs-attribute field-name (join-queryset join)))
                (error "Attribute ~A.~A not found." table-name field-name))
              (add-simple-join qs table-name))))
     (setf (queryset-fields qs)
