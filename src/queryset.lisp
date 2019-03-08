@@ -291,6 +291,14 @@ holds field name."
     (setf (queryset-fields qs)
           (append (queryset-fields qs) (list field)))))
 
+(defun add-join (queryset mode qs alias relation)
+  (setf (queryset-joins queryset)
+        (append (queryset-joins queryset) (list (make-join mode qs alias relation)))))
+
+(defun add-filter (queryset relation)
+  (setf (queryset-where queryset)
+        (append (queryset-where queryset) (list relation))))
+
 
 
 (defmacro select (model &rest clauses)

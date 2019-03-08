@@ -13,18 +13,6 @@
   create-queryset
   (let ((queryset (make-instance 'secsrv.queryset::<queryset>
                    :main-table "article"))
-        (journal-join (secsrv.queryset::make-join
-                        secsrv.queryset::+left-join+
-                        "journal" ;; table
-                        "T1" ;; alias
-                        (secsrv.queryset::make-relation "T0.f_journal_id" "=" "T1.f_journal_id")))
-        (collection-join (secsrv.queryset::make-join
-                           secsrv.queryset::+join+
-                           (secsrv.queryset::make-default-queryset "collection")
-                           "T2" ;; alias
-                           (secsrv.queryset::make-relation "T0.f_collection_id" "=" "T2.f_collection_id")))
-        (article-id-filter (secsrv.queryset::make-relation "T0.f_article_id" "=" "211459"))
-        (collection-id-filter (secsrv.queryset::make-relation "T2.f_collection_id" "IS NOT" "NULL"))
         (expected-query (concatenate-newline
                           "SELECT f_article_id AS id"
                           "FROM article AS T0"
@@ -34,8 +22,16 @@
                           "WHERE T0.f_article_id = 211459"
                           "AND T2.f_collection_id IS NOT NULL")))
     (secsrv.queryset::add-select-expression queryset "f_article_id" "id")
-    (setf (secsrv.queryset::queryset-joins queryset)
-          (append (secsrv.queryset::queryset-joins queryset) `(,journal-join ,collection-join)))
-    (setf (secsrv.queryset::queryset-where queryset)
-          (append (secsrv.queryset::queryset-where queryset) `(,article-id-filter ,collection-id-filter)))
+    (secsrv.queryset::add-join queryset
+                               secsrv.queryset::+left-join+
+                               "journal" ;; table
+                               "T1" ;; alias
+                               (secsrv.queryset::make-relation "T0.f_journal_id" "=" "T1.f_journal_id"))
+    (secsrv.queryset::add-join queryset
+                               secsrv.queryset::+join+
+                               (secsrv.queryset::make-default-queryset "collection")
+                               "T2" ;; alias
+                               (secsrv.queryset::make-relation "T0.f_collection_id" "=" "T2.f_collection_id"))
+    (secsrv.queryset::add-filter queryset (secsrv.queryset::make-relation "T0.f_article_id" "=" "211459"))
+    (secsrv.queryset::add-filter queryset (secsrv.queryset::make-relation "T2.f_collection_id" "IS NOT" "NULL"))
     (ensure-same expected-query (secsrv.queryset::sql<-queryset queryset))))
