@@ -15,6 +15,15 @@
   #+(or)(:import-from :secsrv
                       #:user-id-by-name
                       #:evaluate-object-related-query)
+  (:import-from :secsrv.queryset
+                #:+join+
+                #:make-join
+                #:make-default-queryset
+                #:make-relation
+                #:add-select-expression
+                #:add-join
+                #:add-filter
+                #:sql<-queryset)
   (:export #:<checker>
            #:<object>
            #:object-id
@@ -236,17 +245,16 @@ object's identifier.
   (let ((parsed-path (or (access-path-items access-path)
                          (verify-access-path-expression
                           (or start-concept (access-path-concept access-path))
-                          (access-path-expression access-path))))
-        sql-select sql-from sql-where joins)
+                          (access-path-expression access-path)))))
     (loop
        :initially
        (let ((first-entity (attribute-concept (ap-item-attribute (first parsed-path)))))
-         (push (format nil " T~D.~A = ~A"
-                       min-seq
-                       (entity-attribute-column (entity-primary-key first-entity))
-                       (or initial "~A"))
-             sql-where)
-         (setf sql-from (format nil "FROM ~A T~D " (entity-table first-entity) min-seq)))
+         (setf queryset (make-default-queryset (entity-table first-entity)))
+         (add-filter queryset
+                     (make-relation
+                       (format nil "T~D.~A" min-seq (entity-attribute-column (entity-primary-key first-entity)))
+                       "="
+                       (or initial "~A"))))
        :for items-remained :on parsed-path
        :for ap-item = (first items-remained)
        :for attribute = (ap-item-attribute ap-item) :and constraint = (ap-item-constraint ap-item)
@@ -256,33 +264,32 @@ object's identifier.
        :for current-alias = (format nil "T~D" seq) :and next-alias = (format nil "T~D" (1+ seq))
        :when (< min-seq seq)
        :do
-       (push (format nil " JOIN ~A T~D ON (T~D.~A=T~D.~A) "
-                     ;; joined table and it's alias
-                     (entity-table current-model) seq
+       (add-join queryset +join+
+                 (entity-table current-model)  ;; joined table
+                 (format nil "T~D" seq)        ;; its alias
+                 (make-relation
                      ;; join column
-                     seq
-                     (if (entity-attribute-reverse-attribute previous-attribute)
-                         (entity-attribute-column (entity-attribute-reverse-attribute previous-attribute))
-                         (entity-attribute-column (entity-primary-key current-model)))
+                     (format nil "T~D.~A"
+                             seq
+                             (if (entity-attribute-reverse-attribute previous-attribute)
+                                 (entity-attribute-column (entity-attribute-reverse-attribute previous-attribute))
+                                 (entity-attribute-column (entity-primary-key current-model))))
+                     "="
                      ;; join column in the previous table
-                     (1- seq) (entity-attribute-column previous-attribute))
-             joins)
+                     (format nil "T~D.~A" (1- seq) (entity-attribute-column previous-attribute))))
        :do
        (when (and constraint items-remained)
-         (let ((foreign-key-name (format nil "~A.~A" current-alias (entity-attribute-column attribute))))
-           (push (ap-constraint->sql constraint next-alias foreign-key-name)
-                 sql-where)))
+         (add-filter queryset (make-relation (constraint-first-argument constraint)
+                                             (constraint-operation constraint)
+                                             (constraint-second-argument constraint))))
        :finally
-       (setf sql-select
-             (format nil "SELECT T~D.~A "
-                     (if (rest parsed-path) seq 0)   ; Use T0 if no other tables were joined
-                     (entity-attribute-column (or attribute (first parsed-path))))))
+       (add-select-expression queryset
+                              (format nil "T~D.~A"
+                                      (if (rest parsed-path) seq 0)
+                                      (entity-attribute-column (or attribute (first parsed-path))))
+                              (entity-attribute-column (or attribute (first parsed-path)))))
     ;; Compose the resulting query
-    (let ((sql (concatenate 'string
-                            sql-select
-                            sql-from
-                            (apply #'concatenate 'string (reverse joins))
-                            (format nil " WHERE ~{~A~^ AND~}" sql-where))))
+    (let ((sql (sql<-queryset queryset)))
       #+(or)(log-message :trace "~&*********************************~%~A~%*********************************~%" sql)
       sql)))
 
